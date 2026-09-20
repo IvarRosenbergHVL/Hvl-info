@@ -14,7 +14,7 @@ HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening
 - En felles inngang til HVLs KI-plattform og etter hvert Mime, med eksplisitt og begrenset stedskontekst.
 - Samme informasjon og tjenester i mobilapp og desktop-app (Windows/macOS).
 - En generisk plattform: Nye steder, sendere og innholdstyper opprettes i admin – ingen appoppdatering per rom eller kampanje.
-- IT/drift kan registrere, klargjøre, plassere, teste, flytte og avregistrere utplasserte ESP32-beacons i admin; se [enhetsregistrering og utplassering](docs/BEACON-PROVISIONING.md).
+- IT/drift kan registrere en beacon med nummeret preget på kabinettet, angi plassering og la backend automatisk tildele iBeacon-identitet; senere klargjøre, teste, flytte og avregistrere enheten i admin; se [enhetsregistrering og utplassering](docs/BEACON-PROVISIONING.md).
 
 ## Planlagt teknologistack
 
@@ -90,3 +90,8 @@ Les [docs/PLAN.md](docs/PLAN.md), [docs/BEACON-PROVISIONING.md](docs/BEACON-PROV
 - [Oppsettsflyt for ESP32](docs/ESP32-FIRST-BOOT.md): første boot via mobil, Wi-Fi, navn, innrullering og sjeldne nettøkter.
 
 Etiketter, dokumentasjon og API-oppslag er ikke en erstatning for fysisk BLE-testing eller riktig Entra-konfigurasjon. Ingen GitHub Actions er lagt inn.
+
+
+## Nummererte kabinetter og automatisk BLE-identitet
+
+Teknikeren trenger bare nummeret som er preget på kabinettet (f.eks. `42`) og fysisk plassering i admin. Node.js oppretter intern UUID og tildeler unik Major/Minor under én felles system-UUID. ESP32-brikkens `hardware_id` registreres først når engangskoden brukes over HTTPS ved første oppsett. Det trykte nummeret er offentlig inventar-ID, **ikke en hemmelig autentiseringskode**. Les [inventar- og paringsflyten](docs/NUMBERED-BEACONS.md).

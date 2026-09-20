@@ -3,11 +3,11 @@
 Dette er beslutningen for **MVP**: ESP32-C3 er først og fremst en **lokal iBeacon-sender**. Den trenger ikke være kontinuerlig på Wi-Fi eller MQTT. En kort HTTPS-økt ved installasjon, oppstart og deretter ca. hver time er tilstrekkelig for normalt innhold og konfigurasjon.
 
 ## Brukerflyt
-1. IT oppretter fysisk enhet i Entra-beskyttet React-admin. Registrer maskinvare-ID, navn, rolle, sted og tildel unik UUID/Major/Minor. Romnummer og manualer forblir på stedet.
+1. IT oppretter fysisk enhet i Entra-beskyttet React-admin. Registrer bare det nummeret som er preget på kabinettet, og velg fysisk plassering og rolle. Backend tildeler intern UUID og unik iBeacon Major/Minor automatisk; chipens maskinvare-ID knyttes til nummeret ved første oppsett. Romnummer og manualer forblir på stedet.
 2. IT lager en **15 minutters engangskode** for registrert, plassert enhet.
 3. Ved første oppstart sender ESP32 et **passordbeskyttet lokalt Wi-Fi**: `HVL-INFO-<siste-tegn-i-maskinvare-ID>`. Passordet genereres per enhet og skrives ut på USB-serial ved klargjøring; merk det i utleveringspakken før kapslingen lukkes. Ikke bruk åpent eller felles standard-AP-passord.
 4. Teknikeren kobler mobilen til det midlertidige Wi-Fi-nettet og åpner `http://192.168.4.1`. Lokal portal viser 2,4 GHz-nettverk oppdaget av ESP32; manuell SSID fungerer ved skjult nett. Bruker skriver inn eget displaynavn, Wi-Fi-passord og engangskode fra admin.
-5. ESP32 lagrer Wi-Fi i lokal NVS og lukker setup-AP; bruker deretter valgt internettforbindelse for å kontakte backend **over sertifikatvalidert HTTPS**. Backend verifiserer engangskode, forventet hardware-ID, eksisterende plassering og iBeacon-identitet, og gir en egen tilfeldig enhetsnøkkel og ønsket BLE-konfigurasjon. Engangskode blir ugyldig.
+5. ESP32 lagrer Wi-Fi i lokal NVS og lukker setup-AP; bruker deretter valgt internettforbindelse for å kontakte backend **over sertifikatvalidert HTTPS**. Backend verifiserer engangskode, binder chipens maskinvare-ID til det på forhånd registrerte inventarnummeret, og verifiserer eksisterende plassering og automatisk tildelt iBeacon-identitet, og gir en egen tilfeldig enhetsnøkkel og ønsket BLE-konfigurasjon. Engangskode blir ugyldig.
 6. ESP32 starter iBeacon med backendtildelt identitet. Mobil/desktop kan slå opp identiteten via vanlig bruker-API. IT tester på stedet (f.eks. med nRF Connect) og markerer fysisk bekreftet i admin. Etter det trenger ikke ESP32 å kjenne innhold/tilbud/rommanualer – bare sin offentlige BLE-identitet.
 7. ESP32 slår av Wi-Fi og fortsetter BLE. Ved senere oppstart og omtrent hver time kobler den seg kort til Wi-Fi, sender status/firmware/rapportert konfigurasjonsversjon og henter aktuell konfigurasjon. Ingen sentral logg om personer som passerer.
 
@@ -42,3 +42,6 @@ RabbitMQ beholdes for backend-jobber, eventuelle hendelser og senere enhetsscena
 
 ### Implementeringsstatus
 React-admin og firmwareportal er **skrevet, ikke ennå testet mot fysisk enhet/HVL tenant/nett**. API-endepunktene for én gangs registrering og periodisk HTTPS-sjekk er lagt inn, men krever Entra- og TLS-konfigurasjon før bruk.
+
+
+Se [NUMBERED-BEACONS.md](NUMBERED-BEACONS.md) for nummererte kabinetter, automatisk Major/Minor, engangskode og chipbinding.

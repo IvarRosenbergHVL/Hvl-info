@@ -2,9 +2,9 @@
 
 | Område | Status |
 | --- | --- |
-| Node.js API | Entra-basert admin, places, device registry, iBeacon ID, én-gangs innrullering og periodisk HTTPS check-in kodet |
+| Node.js API | Entra-basert admin, nummerert inventar + plassering i én operasjon, automatisk iBeacon-identitet, chipbinding ved engangskode og periodisk HTTPS check-in kodet |
 | PostgreSQL | Migrasjon 002 med engangstoken-hash, individuell enhetsnøkkel-hash, navn, siste sjekk og config-versjon |
-| React admin | Vite/React + MSAL, registrer rom, ESP32, plassering og UUID/Major/Minor, generer engangskode, vis siste synk, manuell bekreftelse |
+| React admin | Vite/React + MSAL: registrer nummer på kabinett og fysisk plassering; backend tildeler iBeacon. Generer engangskode, vis siste synk og manuell bekreftelse |
 | ESP32-C3 | Arduino-skisse med passordbeskyttet lokal AP/HTTP-webportal, SSID-liste, navn, innrullering over CA-validert HTTPS, iBeacon og periodisk Wi-Fi |
 | RabbitMQ | Tilgjengelig for backend-jobber, ikke nødvendig som vedvarende ESP32-tilkobling |
 | Expo / Tauri / Mime | Fortsatt planlagt |

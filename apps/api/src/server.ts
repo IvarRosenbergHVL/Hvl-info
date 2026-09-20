@@ -105,7 +105,7 @@ app.post("/device/provision", asyncRoute(async (req, res) => {
   const key = newSecret();
   const result = await transaction(async client => {
     const { rows } = await client.query(`
-      SELECT t.id AS token_id,d.id,d.hardware_id,d.state,d.config_version,i.beacon_uuid,i.major,i.minor,i.measured_power
+      SELECT t.id AS token_id,d.id,d.hardware_id,d.inventory_number,d.state,d.config_version,i.beacon_uuid,i.major,i.minor,i.measured_power
       FROM device_provisioning_tokens t
       JOIN beacon_devices d ON d.id=t.device_id
       JOIN beacon_identities i ON i.device_id=d.id
@@ -113,8 +113,15 @@ app.post("/device/provision", asyncRoute(async (req, res) => {
       WHERE t.token_hash=$1 AND t.consumed_at IS NULL AND t.expires_at > now()
       FOR UPDATE OF t,d`, [hash(enrollment)]);
     const device = rows[0];
-    if (!device || device.hardware_id !== hardware || device.state === "disabled")
-      throw new HttpError(401, "Unknown, expired or used enrollment token");
+    if (!device || (device.hardware_id !== null && device.hardware_id !== hardware) || device.state === "disabled")
+      throw new HttpError(401, "Unknown, expired, used or mismatched enrollment token");
+    // Claim the unbound inventory item with the chip's actual hardware ID.
+    // A one-time token alone authorizes only this preselected inventory item.
+    if (device.hardware_id === null) {
+      await client.query(
+        "UPDATE beacon_devices SET hardware_id=$2,updated_at=now() WHERE id=$1 AND hardware_id IS NULL",
+        [device.id,hardware]);
+    }
     const used = await client.query(
       "UPDATE device_provisioning_tokens SET consumed_at=now() WHERE id=$1 AND consumed_at IS NULL RETURNING id",
       [device.token_id]);
@@ -126,7 +133,7 @@ app.post("/device/provision", asyncRoute(async (req, res) => {
       [device.id,label]);
     return device;
   });
-  res.json({ device_id:result.id, device_key:key, config_version:result.config_version, poll_interval_seconds:3600,
+  res.json({ device_id:result.id, inventory_number:result.inventory_number, device_key:key, config_version:result.config_version, poll_interval_seconds:3600,
     config:{ uuid:result.beacon_uuid, major:result.major, minor:result.minor,
       measured_power:result.measured_power, enabled:true } });
 }));
@@ -224,14 +231,50 @@ app.get("/api/admin/devices", asyncRoute(async (_req,res) => {
 }));
 app.post("/api/admin/devices", asyncRoute(async (req,res) => {
   const v=body(req);
-  const hardwareId=text(v.hardware_id,"hardware_id",100);
-  if (!/^[a-zA-Z0-9:._-]+$/.test(hardwareId)) throw new HttpError(400,"Invalid hardware_id");
+  const number=v.inventory_number;
+  if (typeof number!=="number" || !Number.isSafeInteger(number) || number<1)
+    throw new HttpError(400,"inventory_number must be a positive safe integer");
+  const placeId=uuid(v.place_id,"place_id");
+  const role=text(v.role,"role",32);
+  if (!["classroom_equipment","area","service","equipment"].includes(role))
+    throw new HttpError(400,"Invalid role");
+  const commonUuid=process.env.HVL_IBEACON_UUID;
+  if (!commonUuid) throw new HttpError(503,"HVL_IBEACON_UUID is not configured");
+  try { parseIBeaconIdentity({uuid:commonUuid,major:0,minor:1}); }
+  catch { throw new HttpError(503,"Configured HVL_IBEACON_UUID is invalid"); }
   const device=await transaction(async client => {
+    const place=await client.query("SELECT id FROM places WHERE id=$1",[placeId]);
+    if (!place.rowCount) throw new HttpError(404,"Place not found");
     const {rows}=await client.query(
-      "INSERT INTO beacon_devices(hardware_id,asset_tag,model,friendly_name) VALUES($1,$2,$3,$4) RETURNING *",
-      [hardwareId,optional(v.asset_tag,"asset_tag"),optional(v.model,"model") ?? "ESP32-C3 SuperMini",optional(v.friendly_name,"friendly_name",80)]);
-    await audit(client,req,"device.registered",rows[0].id);
-    return rows[0];
+      `INSERT INTO beacon_devices(inventory_number,friendly_name,asset_tag,model,state)
+       VALUES($1,$2,$3,$4,'placed') RETURNING *`,
+      [number,"Beacon "+number,String(number),"ESP32-C3 SuperMini"]);
+    const d=rows[0];
+    await client.query(
+      "INSERT INTO beacon_placements(device_id,place_id,role) VALUES($1,$2,$3)",
+      [d.id,placeId,role]);
+    // One shared iBeacon UUID, an allocated unique Major/Minor pair.
+    // A database sequence serializes allocations even under concurrent admin requests.
+    let assigned=false;
+    for (let attempts=0;attempts<1000;attempts++) {
+      const serial=Number((await client.query(
+        "SELECT nextval('beacon_identity_seq') AS sequence")).rows[0].sequence);
+      if (!Number.isSafeInteger(serial) || serial>4294967295)
+        throw new HttpError(503,"iBeacon identity namespace exhausted");
+      const major=Math.floor(serial/65536),minor=serial%65536;
+      const exists=await client.query(
+        "SELECT 1 FROM beacon_identities WHERE beacon_uuid=$1 AND major=$2 AND minor=$3",
+        [commonUuid,major,minor]);
+      if (exists.rowCount) continue; // An identity assigned before automatic allocation.
+      await client.query(
+        "INSERT INTO beacon_identities(device_id,beacon_uuid,major,minor) VALUES($1,$2,$3,$4)",
+        [d.id,commonUuid,major,minor]);
+      assigned=true; break;
+    }
+    if (!assigned) throw new HttpError(503,"Could not allocate iBeacon identity");
+    await audit(client,req,"device.registered_and_placed",d.id,
+      {inventory_number:number,place_id:placeId,role});
+    return d;
   });
   res.status(201).json(device);
 }));

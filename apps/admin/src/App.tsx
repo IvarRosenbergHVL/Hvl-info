@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 import "./style.css";
 type Place={id:string;campus:string;building:string;room_number:string|null;name:string};
-type Device={id:string;hardware_id:string;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;config_version:number;reported_version:number|null};
+type Device={id:string;hardware_id:string|null;inventory_number:number|null;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;config_version:number;reported_version:number|null};
 const tenant=import.meta.env.VITE_ENTRA_TENANT_ID as string|undefined;
 const clientId=import.meta.env.VITE_ENTRA_CLIENT_ID as string|undefined;
 const scope=import.meta.env.VITE_ENTRA_API_SCOPE as string|undefined;
@@ -11,8 +11,8 @@ export default function App(){
  const [ready,setReady]=useState(false),[loggedIn,setLoggedIn]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [places,setPlaces]=useState<Place[]>([]),[devices,setDevices]=useState<Device[]>([]);
- const [selectedPlace,setSelectedPlace]=useState(""),[hardware,setHardware]=useState("");
- const [name,setName]=useState(""),[major,setMajor]=useState("100"),[minor,setMinor]=useState("1");
+ const [selectedPlace,setSelectedPlace]=useState(""),[number,setNumber]=useState("");
+ 
  const [role,setRole]=useState("classroom_equipment");
  const [shownToken,setShownToken]=useState<{id:string;token:string}|null>(null);
  const [place,setPlace]=useState({campus:"",building:"",room_number:"",name:"",kind:"room"});
@@ -32,10 +32,13 @@ export default function App(){
  useEffect(()=>{if(loggedIn)void run(refresh);},[loggedIn]);
  async function addPlace(e:FormEvent){e.preventDefault();await run(async()=>{await api("/admin/places","POST",{...place,room_number:place.room_number||null});setPlace({campus:"",building:"",room_number:"",name:"",kind:"room"});await refresh();setNotice("Sted opprettet");});}
  async function register(e:FormEvent){e.preventDefault();await run(async()=>{
-  const d=await api<Device>("/admin/devices","POST",{hardware_id:hardware.trim().toUpperCase(),friendly_name:name.trim()});
-  await api("/admin/devices/"+d.id+"/placement","POST",{place_id:selectedPlace,role});
-  await api("/admin/devices/"+d.id+"/ibeacon","PUT",{major:Number(major),minor:Number(minor)});
-  setNotice("Registrert "+d.hardware_id+". Opprett engangskode for oppsett.");setHardware("");setName("");await refresh();
+  const inventory=Number(number);
+  if(!Number.isSafeInteger(inventory)||inventory<1)throw Error("Oppgi et positivt heltallsnummer fra kabinettet");
+  const d=await api<Device>("/admin/devices","POST",{
+    inventory_number:inventory,place_id:selectedPlace,role
+  });
+  setNotice("Beacon #"+inventory+" registrert med automatisk iBeacon-identitet. Opprett engangskode for oppsett.");
+  setNumber("");await refresh();
  });}
  async function issue(d:Device){await run(async()=>{
   const r=await api<{provisioning_token:string}>("/admin/devices/"+d.id+"/enrollment","POST",{});
@@ -58,18 +61,16 @@ export default function App(){
  <label>Stedsnavn<input required value={place.name} onChange={e=>setPlace({...place,name:e.target.value})}/></label>
  <label>Type<select value={place.kind} onChange={e=>setPlace({...place,kind:e.target.value})}>{["room","area","service","equipment"].map(x=><option key={x}>{x}</option>)}</select></label>
  <button disabled={busy}>Opprett sted</button></form></section>
- <section><h2>2. Registrer ESP32</h2><p>Maskinvare-ID finner du på USB Serial Monitor. Navnet er en etikett; beacon-identiteten er UUID/Major/Minor.</p>
+ <section><h2>2. Registrer fysisk beacon</h2>
+ <p>Les nummeret som er preget på kabinettet. Backenden tildeler intern enhets-ID og iBeacon-identitet; selve ESP32-chipen kobles til nummeret ved første oppsett.</p>
  <form onSubmit={register}>
- <label>Hardware ID<input required pattern="[A-Fa-f0-9:._-]+" value={hardware} onChange={e=>setHardware(e.target.value)}/></label>
- <label>Navn<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Lærerpult M204"/></label>
- <label>Sted<select required value={selectedPlace} onChange={e=>setSelectedPlace(e.target.value)}><option value="">Velg sted</option>{places.map(p=><option value={p.id} key={p.id}>{p.campus} / {p.building} / {p.room_number||p.name}</option>)}</select></label>
- <label>Rolle<select value={role} onChange={e=>setRole(e.target.value)}>{["classroom_equipment","area","service","equipment"].map(x=><option key={x}>{x}</option>)}</select></label>
- <label>Major<input type="number" min="0" max="65535" value={major} onChange={e=>setMajor(e.target.value)} required/></label>
- <label>Minor<input type="number" min="0" max="65535" value={minor} onChange={e=>setMinor(e.target.value)} required/></label>
- <button disabled={busy||!places.length}>Registrer</button></form></section>
- {shownToken&&<section className="token"><h2>Engangskode – vises kun nå</h2><p>Enhet: {shownToken.id}. Koble mobil til enhetens midlertidige Wi-Fi, åpne http://192.168.4.1, velg Wi-Fi, sett navn og skriv inn koden.</p><code>{shownToken.token}</code><p>Gyldig 15 minutter. Wi-Fi-passord skrives kun på ESP32 sin lokale oppsettside.</p><button onClick={()=>setShownToken(null)}>Skjul kode</button></section>}
+ <label>Nummer på kabinettet<input required type="number" min="1" step="1" value={number} onChange={e=>setNumber(e.target.value)} placeholder="42"/></label>
+ <label>Fysisk plassering<select required value={selectedPlace} onChange={e=>setSelectedPlace(e.target.value)}><option value="">Velg sted</option>{places.map(p=><option value={p.id} key={p.id}>{p.campus} / {p.building} / {p.room_number||p.name}</option>)}</select></label>
+ <label>Type<select value={role} onChange={e=>setRole(e.target.value)}>{["classroom_equipment","area","service","equipment"].map(x=><option key={x}>{x}</option>)}</select></label>
+ <button disabled={busy||!places.length}>Registrer beacon</button></form></section>
+ {shownToken&&<section className="token"><h2>Engangskode – vises kun nå</h2><p>Registrert enhet: {devices.find(d=>d.id===shownToken.id)?.inventory_number??shownToken.id}. Koble mobil til enhetens midlertidige Wi-Fi, åpne http://192.168.4.1, velg Wi-Fi, sett navn og skriv inn koden.</p><code>{shownToken.token}</code><p>Gyldig 15 minutter. Wi-Fi-passord skrives kun på ESP32 sin lokale oppsettside.</p><button onClick={()=>setShownToken(null)}>Skjul kode</button></section>}
  <section><h2>3. Enhetsoversikt</h2><button disabled={busy} onClick={()=>void run(refresh)}>Oppdater</button><div className="devices">
- {devices.map(d=><article key={d.id}><h3>{d.friendly_name||d.hardware_id}</h3><p>{d.hardware_id} · {d.state} · {d.place_name||"Ikke plassert"}</p>
+ {devices.map(d=><article key={d.id}><h3>{"#"+(d.inventory_number??"legacy")+(d.friendly_name?" · "+d.friendly_name:"")}</h3><p>{d.hardware_id||"Chip bindes ved første oppsett"} · {d.state} · {d.place_name||"Ikke plassert"}</p>
  <p>{d.beacon_uuid||"Mangler UUID"} / {d.major??"–"} / {d.minor??"–"}</p>
  <p><small>Sist sjekket: {d.last_seen_at?new Date(d.last_seen_at).toLocaleString("no-NO"):"Aldri"} · Konfig ønsket: {d.config_version}, rapportert: {d.reported_version??"–"}</small></p>
  <div className="actions"><button disabled={busy||d.state==="disabled"} onClick={()=>void issue(d)}>Engangskode</button>

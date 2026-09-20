@@ -1,0 +1,28 @@
+# Nummererte fysiske beacons – registrering uten tekniske ID-er
+
+**Beslutning:** ESP32-C3-enhetene monteres i 3D-printede kabinetter med et synlig nummer preget inn i plasten fra 1 og oppover, eksempelvis **42**. Dette nummeret er inventarnummer og det eneste en tekniker behøver å taste for å opprette enheten i admin. Samme nummer skal ikke forveksles med iBeacon Major/Minor, chipens maskinvare-ID eller en sikkerhetskode.
+
+## Enklere feltflyt
+
+1. Teknikeren monterer enhet med «42» i rom M204 og åpner Entra-beskyttet admin.
+2. Registrer **nummer 42**, velg campus/bygg/rom og rollen «Klasseromutstyr». Ingen MAC, UUID, Major eller Minor skal tastes. Registreringen er atomisk: inventarpost + plassering + BLE-identitet, eller ingen av delene.
+3. Backend lager `device_id` (intern UUID), bruker en felles HVL iBeacon UUID og allokerer neste unike Major/Minor-par fra PostgreSQL-sekvens. `inventory_number` er unikt; duplikatnummer avvises.
+4. Tekniker genererer 15 minutters engangskode i admin for **inventar 42**.
+5. ESP32 starter passordbeskyttet midlertidig Wi-Fi ved første boot. Teknikeren velger 2,4 GHz-nettverk og valgfritt visningsnavn på lokal oppsettside og legger inn engangskoden. Enheten sender **sin egen maskinvare-ID** over sertifikatvalidert HTTPS til Node.js.
+6. Backend låser registreringen, forbruker koden og binder maskinvare-ID til akkurat inventar 42 dersom den ennå er ubundet. Ved gjenoppsett av samme inventar må ID matche; en annen chip kan ikke stilltiende overta nummeret. Enhetsnøkkel og UUID/Major/Minor returneres, og ESP32 starter annonsering.
+7. Appen slår opp iBeacon-ID i backend og ser sted/utstyr. Manualer og meldinger ligger på stedet og forsvinner ikke om fysisk chip byttes.
+
+Enhetsnummeret er offentlig, og en person som bare kjenner nummer 42 kan ikke registrere seg: det kreves en kortlivet engangskode utstedt fra Entra-admin. Men koden kan brukes av **første chip som får tak i den**, så teknikeren må være til stede under paring, og feil chip kan ikke behandles som en bekreftet hardware-attestasjon. Ved chipbytte må administrator eksplisitt frikoble/erstatte fysisk hardware-ID og trekke tilbake gammel enhetsnøkkel – **ikke** omgå bindingen automatisk. Enheten kan fremdeles deaktiveres i backend, og umiddelbar fysisk stopp krever at strømmen trekkes.
+
+## Database og kompatibilitet
+
+- `beacon_devices.inventory_number`: unikt positivt heltall for nye kabinetter; ikke en teknisk ID.
+- `beacon_devices.hardware_id`: nullable fram til første innrullering, deretter bundet til chip.
+- `beacon_devices.id`: intern UUID, ikke skrevet på kabinettet.
+- `beacon_identities`: felles UUID + automatisk tildelt Major/Minor, en unik kombinasjon per enhet.
+- Historiske manuelt opprettede poster bevares uten gjetting av fysiske inventarnummer og må avstemmes særskilt.
+- Backendens tildeling bruker sekvens og databasesperrer/unike indekser. Nummer 42 er **ikke automatisk** Minor 42; det er to uavhengige nummerrom.
+
+## Ikke ferdig ennå
+
+Fysisk kompilering/flash og ekte Entra-/PostgreSQL-tester, automatisk QR-/etikettproduksjon og administratorflyt for eksplisitt hardwarebytte gjenstår. Et eget kort med AP-passord eller en beskyttet QR på kabinettets underside kan gjøre mobiloppsettet enklere; synlig nummer skal ikke brukes som AP-passord.
