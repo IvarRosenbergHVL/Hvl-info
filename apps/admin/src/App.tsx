@@ -1,5 +1,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import technicianGuide from "../../../docs/TECHNICIAN-GUIDE.md?raw";
 import "./style.css";
 type Place={id:string;campus:string;building:string;room_number:string|null;name:string};
 type Device={id:string;hardware_id:string|null;inventory_number:number|null;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;provisioned_at:string|null;verified_at:string|null;verified_by:string|null;config_version:number;reported_version:number|null};
@@ -9,6 +12,7 @@ const scope=import.meta.env.VITE_ENTRA_API_SCOPE as string|undefined;
 const msal=tenant&&clientId?new PublicClientApplication({auth:{clientId,authority:"https://login.microsoftonline.com/"+tenant,redirectUri:window.location.origin+"/"},cache:{cacheLocation:"sessionStorage"}}):null;
 export default function App(){
  const [ready,setReady]=useState(false),[loggedIn,setLoggedIn]=useState(false);
+ const [showGuide,setShowGuide]=useState(false);
  const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
  const [places,setPlaces]=useState<Place[]>([]),[devices,setDevices]=useState<Device[]>([]);
  const [selectedPlace,setSelectedPlace]=useState(""),[number,setNumber]=useState("");
@@ -52,8 +56,9 @@ export default function App(){
  if(!ready)return <main>Forbereder innlogging …</main>;
  if(!msal||!scope)return <main><h1>HVL Info Admin</h1><p>Konfigurer VITE_ENTRA_TENANT_ID, VITE_ENTRA_CLIENT_ID og VITE_ENTRA_API_SCOPE.</p></main>;
  if(!loggedIn)return <main><h1>HVL Info Admin</h1><button onClick={()=>void msal.loginRedirect({scopes:[scope]})}>Logg inn med Entra ID</button>{error&&<p role="alert">{error}</p>}</main>;
- return <main><header><div><h1>HVL Info</h1><p>Beaconadministrasjon</p></div><button onClick={()=>void msal.logoutRedirect()}>Logg ut</button></header>
+ return <main><header><div><h1>HVL Info</h1><p>Beaconadministrasjon</p></div><nav aria-label="Admin-navigasjon" className="admin-nav"><button type="button" aria-pressed={!showGuide} onClick={()=>setShowGuide(false)}>Enheter</button><button type="button" aria-pressed={showGuide} onClick={()=>setShowGuide(true)}>Teknikerveiledning</button><button onClick={()=>void msal.logoutRedirect()}>Logg ut</button></nav></header>
  {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="ok">{notice}</p>}
+ {showGuide ? <section className="technician-guide" aria-label="Teknikerveiledning"><ReactMarkdown remarkPlugins={[remarkGfm]}>{technicianGuide}</ReactMarkdown></section> : <>
  <section><h2>1. Opprett sted</h2><form onSubmit={addPlace}>
  <label>Campus<input required value={place.campus} onChange={e=>setPlace({...place,campus:e.target.value})}/></label>
  <label>Bygg<input required value={place.building} onChange={e=>setPlace({...place,building:e.target.value})}/></label>
@@ -77,5 +82,5 @@ export default function App(){
  {d.verified_at&&<p><small>Bekreftet av tekniker: {new Date(d.verified_at).toLocaleString("no-NO")}. Dette er ikke kontinuerlig bekreftelse på radiosignal.</small></p>}
  <div className="actions"><button disabled={busy||d.state==="disabled"} onClick={()=>void issue(d)}>Engangskode</button>
  <button disabled={busy||d.state==="disabled"||!d.provisioned_at||!d.last_seen_at||d.reported_version!==d.config_version||Date.now()-new Date(d.last_seen_at).getTime()>=15*60*1000} onClick={()=>void confirm(d)}>Bekreft i drift</button>
- <button disabled={busy||d.state==="disabled"} onClick={()=>void disable(d)}>Deaktiver</button></div></article>)}</div></section></main>;
+ <button disabled={busy||d.state==="disabled"} onClick={()=>void disable(d)}>Deaktiver</button></div></article>)}</div></section></>}</main>;
 }
