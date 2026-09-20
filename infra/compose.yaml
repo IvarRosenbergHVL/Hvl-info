@@ -1,0 +1,24 @@
+# Local development ONLY; change credentials for any shared environment.
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hvl_info
+      POSTGRES_PASSWORD: hvl_info_local_only
+      POSTGRES_DB: hvl_info
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hvl_info -d hvl_info"]
+      interval: 5s
+      retries: 10
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    # MQTT plugin/TLS and per-device ACL are future work; no ESP32 connection yet.
+volumes:
+  postgres_data:

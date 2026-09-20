@@ -1,0 +1,19 @@
+{
+  "name": "hvl-info",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run build -w @hvl-info/contracts && npm run dev -w @hvl-info/api",
+    "build": "npm run build -w @hvl-info/contracts && npm run build -w @hvl-info/api",
+    "test": "npm run test -w @hvl-info/contracts",
+    "db:migrate": "npm run db:migrate -w @hvl-info/api"
+  }
+}
