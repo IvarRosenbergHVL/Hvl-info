@@ -354,13 +354,18 @@ app.post("/api/admin/devices/:id/confirm", asyncRoute(async(req,res)=>{
   if (v.physically_verified !== true) throw new HttpError(400,"Explicit physical verification required");
   const result=await transaction(async client=>{
     const {rows}=await client.query(`
-      UPDATE beacon_devices d SET state='active',updated_at=now()
+      UPDATE beacon_devices d SET state='active',verified_at=now(),
+        verified_by=$2,verified_config_version=d.config_version,updated_at=now()
       WHERE d.id=$1 AND d.state IN ('placed','active')
+        AND d.provisioned_at IS NOT NULL
+        AND d.last_seen_at >= now() - interval '15 minutes'
+        AND d.reported_version = d.config_version
         AND EXISTS(SELECT 1 FROM beacon_identities i WHERE i.device_id=d.id)
         AND EXISTS(SELECT 1 FROM beacon_placements p WHERE p.device_id=d.id AND p.removed_at IS NULL)
-      RETURNING *`,[id]);
-    if (!rows.length) throw new HttpError(409,"Device must have identity and placement before activation");
-    await audit(client,req,"device.physically_verified",id);
+      RETURNING *`,[id,actor(req)]);
+    if (!rows.length) throw new HttpError(409,"Wait for a recent device check-in with the current configuration before physical confirmation");
+    await audit(client,req,"device.physically_verified",id,
+      {config_version:rows[0].config_version,verified_at:rows[0].verified_at});
     return rows[0];
   });
   res.json(result);

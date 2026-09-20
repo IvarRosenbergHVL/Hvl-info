@@ -175,6 +175,10 @@ bool syncOnce() {
   JsonDocument result;
   if(deserializeJson(result,response)) { Serial.println("Bad JSON response"); return false; }
   saveConfiguration(result, path=="/device/provision");
+  // First enrollment is followed immediately by an authenticated check-in.
+  // That confirms the device persisted/applied the expected config before
+  // admin permits a technician to mark it operational.
+  if (path=="/device/provision") return syncOnce();
   return true;
 }
 void page(const String &message="") {

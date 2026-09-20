@@ -42,3 +42,5 @@ GET  /api/beacons/resolve?uuid=...&major=...&minor=...
 Wi-Fi-passord sendes **aldri** til backend – bare til lokal ESP32-portal. Enhetens rå nøkkel vises bare én gang ved innrullering, og backend lagrer hash. IBEACON UUID/Major/Minor kan offentliggjøres; de gir ingen rettighet i API. Innholdet for et rom hentes separat fra API-et.
 
 **Status:** Pilotkode, ennå ikke bygget/kompilert mot faktisk PostgreSQL, Entra og ESP32. Utvidelser: redigere plassering/navn, credential revocation/rotation, OTA, flere tilgangsroller, end-to-end tester, adminopplevelse med QR og etikett.
+
+**Installationsbekreftelse:** `POST /api/admin/devices/:id/confirm` aksepteres bare etter gyldig innrullering og autentisert check-in siste 15 minutter som rapporterer gjeldende config-versjon. Endpoint lagrer `verified_at`, `verified_by`, `verified_config_version` og audithendelse; operatøren bekrefter fysisk BLE-observasjon separat. Firmware sender check-in umiddelbart etter første innrullering. Kjør migrasjon 004 før nytt API.

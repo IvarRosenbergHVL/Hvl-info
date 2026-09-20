@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 import "./style.css";
 type Place={id:string;campus:string;building:string;room_number:string|null;name:string};
-type Device={id:string;hardware_id:string|null;inventory_number:number|null;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;config_version:number;reported_version:number|null};
+type Device={id:string;hardware_id:string|null;inventory_number:number|null;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;provisioned_at:string|null;verified_at:string|null;verified_by:string|null;config_version:number;reported_version:number|null};
 const tenant=import.meta.env.VITE_ENTRA_TENANT_ID as string|undefined;
 const clientId=import.meta.env.VITE_ENTRA_CLIENT_ID as string|undefined;
 const scope=import.meta.env.VITE_ENTRA_API_SCOPE as string|undefined;
@@ -44,8 +44,8 @@ export default function App(){
   const r=await api<{provisioning_token:string}>("/admin/devices/"+d.id+"/enrollment","POST",{});
   setShownToken({id:d.id,token:r.provisioning_token});setNotice("Koden vises én gang og utløper etter 15 minutter");
  });}
- async function confirm(d:Device){if(!confirmDialog("Har du fysisk verifisert riktig UUID/Major/Minor på stedet?"))return;
-  await run(async()=>{await api("/admin/devices/"+d.id+"/confirm","POST",{physically_verified:true});await refresh();setNotice("Fysisk test er bekreftet av operatør");});}
+ async function confirm(d:Device){if(!confirmDialog("Har du kontrollert inventarnummer, fysisk plassering og riktig UUID/Major/Minor over BLE på stedet?"))return;
+  await run(async()=>{await api("/admin/devices/"+d.id+"/confirm","POST",{physically_verified:true});await refresh();setNotice("Installasjon er bekreftet av tekniker og lagret med tidspunkt.");});}
  async function disable(d:Device){if(!confirmDialog("Deaktivere? Enheten kan sende til neste periodiske sjekk. Trekk ut strøm hvis umiddelbar stopp er nødvendig."))return;
   await run(async()=>{await api("/admin/devices/"+d.id+"/disable","POST",{});await refresh();setNotice("Deaktivert i registeret; sender stopper først etter neste vellykkede sjekk");});}
  function confirmDialog(msg:string){return window.confirm(msg);}
@@ -72,8 +72,10 @@ export default function App(){
  <section><h2>3. Enhetsoversikt</h2><button disabled={busy} onClick={()=>void run(refresh)}>Oppdater</button><div className="devices">
  {devices.map(d=><article key={d.id}><h3>{"#"+(d.inventory_number??"legacy")+(d.friendly_name?" · "+d.friendly_name:"")}</h3><p>{d.hardware_id||"Chip bindes ved første oppsett"} · {d.state} · {d.place_name||"Ikke plassert"}</p>
  <p>{d.beacon_uuid||"Mangler UUID"} / {d.major??"–"} / {d.minor??"–"}</p>
- <p><small>Sist sjekket: {d.last_seen_at?new Date(d.last_seen_at).toLocaleString("no-NO"):"Aldri"} · Konfig ønsket: {d.config_version}, rapportert: {d.reported_version??"–"}</small></p>
+ <p><small>Sist kontakt: {d.last_seen_at?new Date(d.last_seen_at).toLocaleString("no-NO"):"Aldri"} · Konfig ønsket: {d.config_version}, rapportert: {d.reported_version??"–"}</small></p>
+ <p><strong>{d.state==="disabled"?"Deaktivert i registeret":d.state==="active"?"Bekreftet i drift":!d.provisioned_at?"Venter på første oppsett":d.last_seen_at&&d.reported_version===d.config_version&&Date.now()-new Date(d.last_seen_at).getTime()<15*60*1000?"Klar for fysisk test":"Venter på oppdatert kontakt fra enheten"}</strong></p>
+ {d.verified_at&&<p><small>Bekreftet av tekniker: {new Date(d.verified_at).toLocaleString("no-NO")}. Dette er ikke kontinuerlig bekreftelse på radiosignal.</small></p>}
  <div className="actions"><button disabled={busy||d.state==="disabled"} onClick={()=>void issue(d)}>Engangskode</button>
- <button disabled={busy||d.state==="disabled"} onClick={()=>void confirm(d)}>Bekreft test</button>
+ <button disabled={busy||d.state==="disabled"||!d.provisioned_at||!d.last_seen_at||d.reported_version!==d.config_version||Date.now()-new Date(d.last_seen_at).getTime()>=15*60*1000} onClick={()=>void confirm(d)}>Bekreft i drift</button>
  <button disabled={busy||d.state==="disabled"} onClick={()=>void disable(d)}>Deaktiver</button></div></article>)}</div></section></main>;
 }

@@ -11,3 +11,5 @@
 | Teststatus | Ikke verifisert kompilering, oppkobling mot PostgreSQL/Entra, faktisk HTTPS eller fysisk ESP32 |
 
 Dette er pilotkode. Klargjør HTTPS-sertifikat, API-URL, Entra appregistrering, godkjent IoT-SSID og AP-etikett før bruk. ESP32 støtter per nå ikke eduroam/802.1X. Deaktivering er ikke øyeblikkelig ved sjelden polling; koble fra strøm hvis enhet må stoppe straks. Ingen GitHub Actions.
+
+Installationsbekreftelse: Entra-admin krever nå provisionering + autentisert check-in siste 15 minutter med rapportert gjeldende konfigurasjon før tekniker kan markere fysisk BLE-verifikasjon og «bekreftet i drift». Firmware gjør en ekstra check-in rett etter første provisioning. Migrasjon 004 registrerer tidspunkt, operatør og bekreftet config-versjon. Ikke hardware-/DB-testet.

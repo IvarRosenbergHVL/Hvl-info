@@ -11,3 +11,5 @@ Hold BOOT (GPIO9) i fem sekunder *etter normal oppstart* for nytt oppsett. Ikke 
 **HVL Wi-Fi:** Firmware støtter nå 2,4 GHz WPA2-Personal/Open testnett, ikke eduroam/802.1X eller captive portal. Avtal en godkjent IoT-SSID og nettverkstilgang med IT. Telefonen må være på ESP32 sitt AP under lokal konfigurering, men trenger ikke Entra-login der. Admin krever Entra ID. Lokal setup-HTTP må aldri eksponeres på HVL-nettet.
 
 **Ikke implementert:** OTA, automatisk etikett-/QR-generering, enterprise Wi-Fi, full credential rotation, hardening av lokalt oppsett. RabbitMQ er for andre backendjobber; ESP32 trenger ikke vedvarende MQTT-forbindelse.
+
+**Bekreftelse etter første oppsett:** Etter at engangskoden er innløst og BLE-konfig er lagret/startet, sender firmwaren én ekstra autentisert check-in straks. Først når admin ser denne med gjeldende config-versjon og teknikeren observerer korrekt beacon på stedet, kan den bekreftes som i drift. Senere Wi-Fi-synk følger fortsatt omtrent én gang i timen.

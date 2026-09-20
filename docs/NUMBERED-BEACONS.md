@@ -26,3 +26,9 @@ Enhetsnummeret er offentlig, og en person som bare kjenner nummer 42 kan ikke re
 ## Ikke ferdig ennå
 
 Fysisk kompilering/flash og ekte Entra-/PostgreSQL-tester, automatisk QR-/etikettproduksjon og administratorflyt for eksplisitt hardwarebytte gjenstår. Et eget kort med AP-passord eller en beskyttet QR på kabinettets underside kan gjøre mobiloppsettet enklere; synlig nummer skal ikke brukes som AP-passord.
+
+## Avslutt utplasseringen: teknikerbekreftelse
+
+Før «Bekreft i drift» blir tilgjengelig må enheten være registrert, ha en plassering, være provisionert og ha sendt en **autentisert HTTPS check-in de siste 15 minuttene** med `reported_version = config_version`. Firmwaren gjør en ekstra check-in umiddelbart etter første innrullering, så teknikeren behøver ikke vente til neste timesintervall.
+
+Teknikeren sammenligner det fysiske nummeret på kabinettet, stedet og UUID/Major/Minor som observeres med mobilen (f.eks. nRF Connect). Knappen «Bekreft i drift» registrerer tidspunkt, Entra-aktør og konfigurasjonsversjon. Det er en manuell fysisk bekreftelse, **ikke kontinuerlig bevis for at BLE sender**. «Sist kontakt» er siste periodiske nettøkt; etter 15 minutter blir ikke enheten automatisk deaktivert bare fordi Wi-Fi er av.
