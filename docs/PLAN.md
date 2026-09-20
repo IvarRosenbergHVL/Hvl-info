@@ -1,6 +1,6 @@
 # Prosjektplan – HVL Info (arbeidstittel HVL Kontekst)
 
-**Status:** Planutkast. **Omfang:** Ett monorepo for backend, mobil, desktop, webadministrasjon, firmware og infrastruktur.
+**Status:** Plan med første implementering; se [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md). **Omfang:** Ett monorepo for backend, mobil, desktop, webadministrasjon, firmware og infrastruktur.
 
 ## Mål
 
@@ -11,7 +11,7 @@ Et KI- og posisjonsdrevet informasjonssystem for studenter og ansatte. Riktig ro
 - Node.js og TypeScript for API og worker; PostgreSQL med migrasjoner; RabbitMQ for asynkrone jobber og enhetsmeldinger.
 - React til admin; React Native med Expo development builds til iOS/Android; Tauri med React til Windows/macOS.
 - **Microsoft Entra ID** som autentisering for studenter og ansatte i alle tre klienter. OIDC/OAuth 2.0 Authorization Code + PKCE, systemnettleser og korrekt redirect-flyt per klient. API validerer issuer, audience, signatur, levetid og relevante scopes/roller. Administrasjon autoriseres på server, ikke av skjulte UI-elementer. Ikke lag egen passordløsning.
-- ESP32-C3 SuperMini: BLE-beacon, Wi-Fi og USB-strøm i 3D-printet kapsling. RabbitMQ MQTT-plugin over TLS er én kandidat for enhetskommunikasjon og må verifiseres; AMQP for backend/worker.
+- ESP32-C3 SuperMini: **iBeacon over BLE** er valgt som første annonseringsformat; Wi-Fi og USB-strøm i 3D-printet kapsling. RabbitMQ MQTT-plugin over TLS er én kandidat for enhetskommunikasjon og må verifiseres; AMQP for backend/worker.
 - Integrasjonsadaptere for HVL KI/Mime, rom/utstyr, driftsavvik og senere timeplan og øvrige HVL-tjenester. Anta ikke at adapterne allerede finnes.
 
 ## Foreslått monorepo
@@ -47,7 +47,7 @@ Admin / Mobile / Desktop ── HTTPS ── Node.js API ── PostgreSQL
                                                        Mobile / Desktop
 ```
 
-ESP32 sender primært en **stabil identifikator**, ikke tilbudstekst eller persondata. Appen slår opp identifikatoren via API og får gjeldende innhold og eventuelle romtjenester. Wi-Fi/RabbitMQ brukes til sentral kontroll (enable/disable, sendeparametre, config-versjon, health/heartbeat og på sikt sikker firmwareoppdatering). Klienter får ikke RabbitMQ-tilgang. Ikke bruk beacon-ID som bevis på identitet eller autorisasjon.
+ESP32 sender i MVP **iBeacon UUID + Major + Minor** som stabil identifikator, ikke tilbudstekst eller persondata. Appen slår opp identifikatoren via API og får gjeldende innhold og eventuelle romtjenester. Wi-Fi/RabbitMQ brukes til sentral kontroll (enable/disable, sendeparametre, config-versjon, health/heartbeat og på sikt sikker firmwareoppdatering). Klienter får ikke RabbitMQ-tilgang. Ikke bruk beacon-ID som bevis på identitet eller autorisasjon.
 
 ## Hovedfunksjoner og brukerreiser
 
@@ -112,3 +112,7 @@ Admin skal kunne opprette/redigere campus, sted og rom; koble enhet til rom; ved
 ## Beslutninger som gjenstår
 
 HVL tenant/appregistreringer og roller; kilde til romregister og driftsavvik; konkret BLE-bibliotek/format; metode for Tauri BLE; MQTT kontra bro; lagringspolicy og offentlig vs innlogget informasjon; drift i Kubernetes og observability. **Entra ID, Node.js, PostgreSQL, React Native/Expo, Tauri/React, React-admin og RabbitMQ er besluttet som ramme.**
+
+## Første kodeleveranse
+
+API og PostgreSQL-skjema er påbegynt; enhetsregistrering, tilordning til sted, manuell iBeacon-identitet og aktivering etter operatørens BLE-test er implementert. ESP32-skissen sender test-iBeacon via USB-strøm, men den er foreløpig ikke tilkoblet Wi-Fi eller RabbitMQ. Entra ID tokenvalidering krever HVLs faktiske tenant/appregistrering og er ikke ende-til-ende-verifisert. Admin, mobil, desktop, jobbprosessering, sikker provisioning og RAG/Mime er ikke implementert. Se [apps/api/README.md](../apps/api/README.md), [firmware/esp32-c3/README.md](../firmware/esp32-c3/README.md) og [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md).
