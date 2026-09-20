@@ -1,6 +1,6 @@
 # Registrering og utplassering av ESP32-beacons
 
-**Status:** Design for MVP. Dette er planlagte arbeidsflyter og kontrakter, ikke implementert funksjonalitet.
+**Status:** Design for MVP. En første registrerings- og plasserings-API + iBeacon-skisse er implementert; sikker provisioning, MQTT/TLS, heartbeat og adminskjermer er **ikke** implementert. Se [implementeringsstatus](IMPLEMENTATION-STATUS.md).
 
 ## Målet
 
