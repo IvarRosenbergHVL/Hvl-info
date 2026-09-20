@@ -22,6 +22,7 @@ HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening
 | Monorepo | Node.js, TypeScript, npm workspaces (foreløpig valg) |
 | API og bakgrunnsjobber | Node.js; REST, autorisasjon, regelmotor, enhetsstyring |
 | Database | PostgreSQL, migrasjoner, relasjoner mellom lokasjoner, beacons, innhold og avvik |
+| Autentisering | Microsoft Entra ID for studenter og ansatte, med rollebasert tilgang til administrasjon og API |
 | Meldingsformidling | RabbitMQ mellom backend og Wi-Fi-tilkoblede ESP32-enheter; MQTT via RabbitMQ MQTT-plugin er et mulig transportvalg som må prøves |
 | Mobil | React Native + Expo, Android/iOS; development builds for nødvendige native BLE-funksjoner |
 | Desktop | Tauri + React, Windows/macOS; native BLE-adapter/plugin undersøkes og testes |
@@ -58,14 +59,15 @@ Ingen selvstendige repoer er planlagt for klientene eller backend. Delte typer o
 
 ## Prinsipper som styrer implementasjonen
 
-1. **Beacon er kontekst, ikke innhold.** Send en stabil identifikator over BLE; appen henter autorisert og tidsaktuelt innhold via HTTPS. Wi-Fi/RabbitMQ styrer sendere og innhenter status. Dynamiske annonseringsidentifikatorer er valgfritt senere, ikke et MVP-krav.
-2. **Mobil og desktop snakker med API-et.** De skal ikke ha direkte RabbitMQ-tilgang. Enhetene trenger heller ikke registrere hvem som er i nærheten.
-3. **To oppdagelsesmoduser.** Bakgrunnsoppdagelse av utvalgte lokasjoner der OS-et tillater det, og aktivt BLE-søk når brukeren velger f.eks. «Klasseromveiledning».
-4. **Manuell fallback.** Søk på romnummer eller velg campus/bygg/rom om beacon mangler, telefonen ikke gir tilgang eller radioen er avslått.
-5. **Stabilitet før «nærmest».** Flere RSSI-observasjoner, terskler, hysterese og prioritet; ved usikkerhet vis flere treff i stedet for å gjette rom.
-6. **Minst mulig støy.** Kategorivalg, avgrenset tidsrom, relevans, kjølingstid og deduplisering. Manuelle oppslag skal aldri hindres av varslingsbegrensningene.
-7. **Dataminimering.** Ikke bygg sentral bevegelseshistorikk. Klientens nærhetsmålinger behandles lokalt så langt som mulig. Brukerkontekst og KI-tilgang følger autorisasjon og samtykke.
-8. **Ingen sikkerhetskritisk avhengighet.** Mobil-OS garanterer ikke øyeblikkelig bakgrunnsvarsling; nødvarsling og kritisk drift må ha andre kanaler.
+1. **Microsoft Entra ID er felles autentisering.** Mobil (Expo), desktop (Tauri) og admin bruker OIDC/OAuth 2.0 med Authorization Code + PKCE; API-et validerer tokens og autoriserer tilgang. Ingen egen passorddatabase.
+2. **Beacon er kontekst, ikke innhold.** Send en stabil identifikator over BLE; appen henter autorisert og tidsaktuelt innhold via HTTPS. Wi-Fi/RabbitMQ styrer sendere og innhenter status. Dynamiske annonseringsidentifikatorer er valgfritt senere, ikke et MVP-krav.
+3. **Mobil og desktop snakker med API-et.** De skal ikke ha direkte RabbitMQ-tilgang. Enhetene trenger heller ikke registrere hvem som er i nærheten.
+4. **To oppdagelsesmoduser.** Bakgrunnsoppdagelse av utvalgte lokasjoner der OS-et tillater det, og aktivt BLE-søk når brukeren velger f.eks. «Klasseromveiledning».
+5. **Manuell fallback.** Søk på romnummer eller velg campus/bygg/rom om beacon mangler, telefonen ikke gir tilgang eller radioen er avslått.
+6. **Stabilitet før «nærmest».** Flere RSSI-observasjoner, terskler, hysterese og prioritet; ved usikkerhet vis flere treff i stedet for å gjette rom.
+7. **Minst mulig støy.** Kategorivalg, avgrenset tidsrom, relevans, kjølingstid og deduplisering. Manuelle oppslag skal aldri hindres av varslingsbegrensningene.
+8. **Dataminimering.** Ikke bygg sentral bevegelseshistorikk. Klientens nærhetsmålinger behandles lokalt så langt som mulig. Brukerkontekst og KI-tilgang følger autorisasjon og samtykke.
+9. **Ingen sikkerhetskritisk avhengighet.** Mobil-OS garanterer ikke øyeblikkelig bakgrunnsvarsling; nødvarsling og kritisk drift må ha andre kanaler.
 
 ## Første demo
 
