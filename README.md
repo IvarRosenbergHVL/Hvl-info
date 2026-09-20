@@ -4,7 +4,7 @@
 
 HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening og KI. En BLE-beacon kan gjøre appen oppmerksom på et område eller undervisningsrom; brukeren kan alltid finne det samme innholdet manuelt. Informasjon og handlinger styres i et felles administrasjonsgrensesnitt, ikke i firmware på hver sender.
 
- > **Status:** API, første React-admin og ESP32-C3-oppsettsportal med periodisk HTTPS-synk er kodet, men ikke fysisk testet. Expo og Tauri gjenstår. Se [implementeringsstatus](docs/IMPLEMENTATION-STATUS.md) og [prosjektplanen](docs/PLAN.md).
+> **Status:** API, første React-admin og ESP32-C3-oppsettsportal med periodisk HTTPS-synk er kodet, men ikke fysisk testet. Expo og Tauri gjenstår. Se [implementeringsstatus](docs/IMPLEMENTATION-STATUS.md) og [prosjektplanen](docs/PLAN.md).
 
 ## Hva vi vil oppnå
 

@@ -105,7 +105,7 @@ app.post("/device/provision", asyncRoute(async (req, res) => {
   const key = newSecret();
   const result = await transaction(async client => {
     const { rows } = await client.query(`
-      SELECT t.id AS token_id,d.id,d.hardware_id,d.state,i.beacon_uuid,i.major,i.minor,i.measured_power
+      SELECT t.id AS token_id,d.id,d.hardware_id,d.state,d.config_version,i.beacon_uuid,i.major,i.minor,i.measured_power
       FROM device_provisioning_tokens t
       JOIN beacon_devices d ON d.id=t.device_id
       JOIN beacon_identities i ON i.device_id=d.id
@@ -126,7 +126,7 @@ app.post("/device/provision", asyncRoute(async (req, res) => {
       [device.id,label]);
     return device;
   });
-  res.json({ device_id:result.id, device_key:key, poll_interval_seconds:3600,
+  res.json({ device_id:result.id, device_key:key, config_version:result.config_version, poll_interval_seconds:3600,
     config:{ uuid:result.beacon_uuid, major:result.major, minor:result.minor,
       measured_power:result.measured_power, enabled:true } });
 }));

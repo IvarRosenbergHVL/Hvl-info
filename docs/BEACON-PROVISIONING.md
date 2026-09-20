@@ -1,72 +1,35 @@
-# Registrering og utplassering av ESP32-beacons
+# Registrering og utplassering av ESP32-C3-beacons
 
-**Status:** Design for MVP. En første registrerings- og plasserings-API + iBeacon-skisse er implementert; sikker provisioning, MQTT/TLS, heartbeat og adminskjermer er **ikke** implementert. Se [implementeringsstatus](IMPLEMENTATION-STATUS.md).
+**Implementering:** Første Entra-beskyttede React-admin, API med engangskoder/individuelle enhetsnøkler, ESP32 lokal webportal og periodisk HTTPS-sjekk er kodet. Ikke validert på faktisk SuperMini/HVL-nett/Entra ennå. Se [ESP32-FIRST-BOOT.md](ESP32-FIRST-BOOT.md) og [implementeringsstatus](IMPLEMENTATION-STATUS.md).
 
-## Målet
+## Hva IT gjør
 
-En IT-/driftsmedarbeider skal kunne ta en ny ESP32-C3 SuperMini fra esken, registrere den i HVL Info, montere den ved en lokasjon og se at den faktisk er på nett og sender riktig BLE-identitet. Systemet må også kunne flytte, erstatte, deaktivere og avregistrere fysiske enheter uten at rommanualer eller innhold forsvinner.
+1. Registrer et sted (campus, bygg, rom/område) i admin.
+2. Registrer ESP32 med offentlig hardware-ID og beskrivende navn (f.eks. «Lærerpult M204»). Tilordne rom/område, rolle og unik iBeacon UUID/Major/Minor. BLE-pakken sender **ikke tekstnavn eller romnummer**. Appen slår opp disse via API.
+3. Flash pilotfirmware via USB og klargjør etikett med lokalt AP-passord fra serial-utskriften. Ved første boot: enhetens passordbeskyttede midlertidige Wi-Fi er `HVL-INFO-...`.
+4. Utsted engangskode i Entra-admin (15 minutter), koble telefonen til enhetens AP, åpne `http://192.168.4.1`; velg nettverk fra skannet liste eller skriv skjult SSID, legg inn Wi-Fi-passord, navn og engangskode.
+5. ESP32 kobler seg på et **IT-godkjent, 2,4 GHz IoT-nett** (pilot: WPA2-Personal), registreres hos Node.js API via verifisert HTTPS, mottar en unik device key og BLE-konfigurasjon. Engangskode forbrukes og kan ikke brukes på nytt.
+6. ESP32 starter BLE og slår av Wi-Fi. Teknikeren verifiserer UUID/Major/Minor på stedet med nRF Connect og markerer aktiv i admin. Deretter kobler enheten seg kort på Wi-Fi ved oppstart og ca. hver time for status og ønsket konfigurasjon.
+7. Fysisk enhet, aktiv plassering og BLE-identitet ligger separat. Rommets manualer, utstyr, hendelser og publikasjoner ligger på stedet. Bytte av enhet skal ikke flytte innhold.
 
-**Skill mellom tre ting:**
+## Følg opp endringer
 
-- `BeaconDevice`: fysisk ESP32 med unik enhets-ID og separat enhetslegitimasjon.
-- `BeaconPlacement`: hvilken campus/bygning/etasje/sted/rom den er plassert ved og fra når.
-- `BeaconIdentity`: BLE-identiteten og annonseringsinnstillingene klientene oppdager. Denne knyttes til *stedet* gjennom aktiv plassering, men enheten kan byttes uavhengig.
+Vanlige oppdateringer av meldinger, tilbud, kurs, rommanualer eller aktive driftsavvik krever **ingen Wi-Fi-oppkobling fra ESP32**. Mobil/desktop henter innhold fra API via beaconens offentlige identitet. Endring av BLE-ID, sendestyrke, oppsett eller deaktivert sender blir først synlig på fysisk enhet ved neste vellykkede HTTPS-sjekk.
 
-En beacon er ikke en bruker og skal aldri autentiseres som en ansatt i Entra ID. Teknikeren logger inn i **admin** med Entra ID og rett rolle.
+Når admin deaktiverer enhet, filtrerer API-et straks beaconoppslag, men en offline enhet kan fortsette å sende gamle BLE-signaler. **Koble fra strømmen ved behov for umiddelbar stans.** «Sist sett» betyr siste nettøkt, ikke kontinuerlig online-status.
 
-## MVP: registrering og fysisk idriftsetting
+## Sikkerhet, begrensninger og videre arbeid
 
-1. **Opprett enhet i admin.** Velg «Legg til ESP32»; skriv inn eller skann enhetens serienummer/produksjons-ID, valgfritt inventarnummer og notat. Systemet lager intern UUID og status `pending`. Ingen enhet får lov til å ta over en eksisterende enhets-ID.
-2. **Tilordne et sted.** Velg campus → bygg → etasje → rom/sted og velg rolle, for eksempel `classroom_equipment` ved lærerpulten, `area` for læringslabben eller `service` for kantina. Romdata eies av sted/rom, ikke av enheten.
-3. **Klargjør enheten lokalt.** Flash felles firmware; klargjør Wi-Fi på en kontrollert måte (for MVP: USB/serial-verktøy hos IT). Vis en **kortlivet, engangs provisioning-kode** bare til autorisert tekniker. Ikke hardkod felles MQTT-passord i firmware eller putt legitimasjon i offentlig QR-kode, BLE-annonsen eller repoet.
-4. **Aktiver sikker enhetsidentitet.** Enheten utveksler engangskoden med backend via HTTPS/TLS, oppgir sin stabile hardware-ID, får begrenset enhetslegitimasjon og ønsket konfigurasjonsversjon. Backend merker koden brukt; gjenbruk avvises. Velg sikker oppbevaring som plattformen støtter; vurder fysisk trusselmodell for ESP32 før bred utrulling.
-5. **Koble til broker.** ESP32 bruker Wi-Fi og MQTT over TLS mot RabbitMQ MQTT-plugin (eller dokumentert bro). Per-enhet tilgang begrenses til egne kommando- og status-topics. Backend sender versjonert `desired`-konfigurasjon (BLE-format/ID, enable, Tx power, advertising interval); ESP32 kvitterer `reported`-versjon og starter annonsering.
-6. **Bekreft installasjon.** Admin viser siste heartbeat, firmware, ønsket/rapportert konfigurasjon, status og valgt rom. Teknikeren bruker «Test beacon» i mobilen/desktop på stedet og ser riktig lokasjon. Før dette er enheten ikke `active`.
-7. **Merk og monter.** Printet kabinett/etikett kan ha offentlig enhets-ID/QR for raskt oppslag i admin, men **ingen hemmeligheter**. Registrer monteringspunkt, USB-strømkilde, dato og eventuelt bilde.
+- Entra ID gjelder mennesker/admin. ESP32 har egen identitet og en tilfeldig enhetsnøkkel; bare hash lagres sentralt.
+- Oppsettssiden er lokal HTTP kun over passordbeskyttet AP, aldri tilgjengelig på campus-nettet. Backend-kall krever verifisert HTTPS.
+- Firmware støtter nå 2,4 GHz WPA2-Personal/Open testnett, **ikke eduroam, 802.1X eller captive portal**. Enheten må få en godkjent IoT-SSID og utgående HTTPS hos HVL.
+- NVS i pilot er ikke nok for produksjon: flash encryption, secure boot, credential rotation, fysisk sikkerhet og QR/etikettprosess gjenstår.
+- Enhetens engangskode kan regenereres av admin; for gjenoppsett holdes BOOT i 5 sekunder *etter* oppstart. Den gamle innrulleringen må håndteres/tilbakekalles etter behov.
+- RabbitMQ beholdes for backend-jobber, ikke for kontinuerlig kommunikasjon med hver ESP32.
+- ESP32/firmware samler ikke brukerpasseringer. Ingen sentral personsporing.
 
-**Fallback:** Hvis Wi-Fi eller RabbitMQ er nede, kan en allerede konfigurert enhet fortsette å sende sist godkjente BLE-identitet så lenge den har strøm; den vises som `offline` etter utløpt heartbeat. Appens manuelle romsøk fungerer også om selve beaconen er nede. Hvis lokasjon er endret og gammel konfigurasjon ikke lenger er gyldig, må gammel enhet deaktivere annonsering så snart den mottar kommando; gi admin synlig advarsel inntil kvittering. Ikke anta at offline enhet kan fjernstanses.
+## Aktuelle endepunkter
 
-## Admin – oversikt og enhetsdetaljer
+`POST /api/admin/devices`, `POST /api/admin/devices/:id/placement`, `PUT /api/admin/devices/:id/ibeacon`, `POST /api/admin/devices/:id/enrollment`, `POST /device/provision`, `POST /device/check-in`, `POST /api/admin/devices/:id/confirm`, `POST /api/admin/devices/:id/disable`.
 
-**Liste:** Enhets-ID/etikett, campus/bygg/rom, beacon-rolle, enhetsstatus, heartbeat, firmware, config ønsket/rapportert, BLE-ID, Wi-Fi-signal hvis tilgjengelig, sist endret av. Filtrer på sted, status og «ikke utplassert». Vis offline uten å forveksle manglende telemetri med bekreftet stoppet BLE.
-
-**Handlinger:** Legg til · Klargjør/provisioner · Plasser · Bekreft test · Flytt · Bytt fysisk enhet · Endre BLE-parametre · Pause/aktiver · Roter legitimasjon · Deaktiver/trekk tilbake · Vis audit.
-
-**Flytt/bytt:** Lukk aktiv `BeaconPlacement`, opprett ny historisk kobling med effektiv dato. Behold rom/manualer/avvik/innhold på `Place/Room`. Ved bytte kan ny ESP32 overta stedets konfigurasjon; den gamle mister tilgang og skal deaktiveres fysisk hvis den er offline. Ikke gjenbruk samme innloggingshemmelighet.
-
-## Minimum datamodell (PostgreSQL)
-
-| Entitet | Sentrale felter |
-| --- | --- |
-| `BeaconDevice` | id UUID, serial/hardware_id unik, asset_tag, model, firmware_version, state, last_seen_at, provisioned_at, revoked_at |
-| `BeaconPlacement` | id, device_id, place_id/room_id, role, mounted_at, removed_at, note, mounted_by; maks én aktiv plassering per fysisk enhet |
-| `BeaconIdentity` | id, device_id eller aktiv plassering, beacon_format, namespace/UUID, major/minor eller alternativ ID, tx_power, interval_ms, enabled, config_version |
-| `DeviceCredential` | device_id, credential reference, status, created_at, rotated_at, revoked_at; hemmeligheter aldri i klartekst i generell logg/audit |
-| `DeviceProvisioningToken` | hashed token, device_id, expires_at, consumed_at, issued_by; engangs og tidsbegrenset |
-| `DeviceHeartbeat` (begrenset historikk) | device_id, timestamp, firmware, reported config, connectivity/health |
-| `AuditEvent` | Entra-bruker, handling, objekt, tidligere/nytt sted, tidspunkt; ikke studenters nærhetshistorikk |
-
-Datamodell og beacon-format må testes mot iOS-bakgrunnsoppdagelse før de fryses. Ikke bruk serienummer alene som hemmelig autentisering.
-
-## API og device-meldinger – forslag
-
-- `POST /admin/devices`, `GET /admin/devices`, `GET /admin/devices/:id`
-- `POST /admin/devices/:id/provisioning-token` (kort gyldighet og rollekrav)
-- `POST /device/provision` (TLS, engangskode + forventet fysisk ID)
-- `POST /admin/devices/:id/placements`, `POST /admin/devices/:id/deactivate`
-- `PATCH /admin/devices/:id/config`, `POST /admin/devices/:id/revoke`
-- `desired`/ `reported`-config og status/heartbeat over egne MQTT-topics med broker-ACL
-
-Avklar konkret API-kontrakt og håndtering av credentials i implementasjons-issue; endepunktene over er designskisser.
-
-## Akseptansekriterier – første pilot
-
-- [ ] Ny SuperMini kan registreres via Entra-beskyttet admin og få unik identitet.
-- [ ] Tekniker kan koble den til et rom, klargjøre Wi-Fi og aktivere med én gangs kode.
-- [ ] Enhet annonserer tildelt BLE-identitet, rapporterer heartbeat/config-versjon, og kan finnes fra telefon på stedet.
-- [ ] En uregistrert/enhet med tilbakekalt legitimasjon får ikke MQTT-tilgang; en kassert engangskode kan ikke gjenbrukes.
-- [ ] Admin skiller `pending`, `provisioned`, `active`, `offline`, `deactivated` og `revoked` (og viser hvorvidt BLE faktisk er verifisert).
-- [ ] Enhet kan flyttes eller erstattes uten at rommanualer, avvik og publikasjoner flyttes med.
-- [ ] Tapt Wi-Fi gir synlig offline-status; manuell romsøk fungerer fortsatt.
-- [ ] Etikett/QR viser bare offentlig identifikator, ikke provisioning-token eller Wi-Fi-/MQTT-hemmeligheter.
-- [ ] Ingen sentral logg over hvilke studenter som passerte en beacon.
+Se [apps/api/README.md](../apps/api/README.md) for lokal oppstart. Ingen GitHub Actions.

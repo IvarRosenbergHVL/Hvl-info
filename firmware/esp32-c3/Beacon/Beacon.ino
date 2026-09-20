@@ -247,6 +247,7 @@ void setup() {
   char buffer[17];
   snprintf(buffer,sizeof(buffer),"%012llX",(unsigned long long)mac);
   hardwareId=String(buffer);
+  Serial.println("HVL Info hardware ID: "+hardwareId);
   prefs.begin("hvl-beacon",true);
   wifiSsid=prefs.getString("ssid","");
   wifiPassword=prefs.getString("pass","");

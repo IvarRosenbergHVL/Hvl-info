@@ -1,52 +1,44 @@
-# HVL Info API – first vertical slice
+# HVL Info API
 
-Implemented: PostgreSQL migration; Entra ID access-token validation; room/place search and detail with guides/active incidents; UUID/Major/Minor lookup; Entra-admin protected place/device registration, manual placement, iBeacon assignment, physical-test confirmation, registry disable and audit. **It is not a deployed platform.**
+Node.js / TypeScript, PostgreSQL, Entra ID JWT validation. Felles backend for admin, mobil og desktop.
 
-## Local setup
+## Utvikling
+
+Fra repo-roten:
 
 ```bash
 docker compose -f infra/compose.yaml up -d
 npm install
 cp .env.example apps/api/.env
-# Populate ENTRA_TENANT_ID, ENTRA_API_AUDIENCE and HVL_IBEACON_UUID
+# Konfigurer ENTRA_TENANT_ID, ENTRA_API_AUDIENCE og HVL_IBEACON_UUID
 npm run db:migrate
 npm run dev:api
+# nytt terminalvindu: cp apps/admin/.env.example apps/admin/.env
+npm run dev:admin
 ```
 
-Run commands from the repository root. `npm run build` builds shared contracts **before** the API. The local compose credentials are for isolated local development only. `/health` checks DB access; all `/api` paths fail closed until Entra is configured.
+Admin logger på mot Entra ID og sender et **access token for dette API-et**; `HvlInfo.Admin`-app-role kreves på server for administrasjon. `/device/*` autentiseres separat med kortlivet innrulleringskode eller per-device key. Produksjonsinngang må tvinge HTTPS; API-et kan ikke selv garantere korrekt ingress/nettsegmentering. `HVL_IBEACON_UUID` settes i backend, ikke av fysisk romnummer.
 
-Entra token requirements: issuer for your tenant's v2 endpoint; audience = configured API resource; RS256 token; API delegated scope `HvlInfo.Read` (configurable), or admin app role `HvlInfo.Admin` (configurable). Only an admin-role token can use `/api/admin/*`. Configure actual scope names/roles in HVL tenant before integrating mobile/desktop/admin clients. The backend must receive an **access token for this API**, not an ID token. No passwords are stored here.
-
-## First API calls
+## API for enhetsflyt
 
 ```text
-GET    /health
-GET    /api/places?q=M204
-GET    /api/places/:id
-GET    /api/beacons/resolve?uuid=<uuid>&major=100&minor=204
-
-POST   /api/admin/places
-       {"campus":"Kronstad","building":"Bygg 1","room_number":"M204","name":"Undervisningsrom M204","kind":"room"}
-GET    /api/admin/devices
-POST   /api/admin/devices
-       {"hardware_id":"HVL-ESP-0001","model":"ESP32-C3 SuperMini"}
-POST   /api/admin/devices/:id/placement
-       {"place_id":"<place uuid>","role":"classroom_equipment"}
-PUT    /api/admin/devices/:id/ibeacon
-       {"major":100,"minor":204,"measured_power":-59}
-POST   /api/admin/devices/:id/confirm
-       {"physically_verified":true}
-POST   /api/admin/devices/:id/disable
+GET  /api/places
+POST /api/admin/places
+GET  /api/admin/devices
+POST /api/admin/devices                   {hardware_id,friendly_name}
+POST /api/admin/devices/:id/placement     {place_id,role}
+PUT  /api/admin/devices/:id/ibeacon       {major,minor,measured_power?}
+POST /api/admin/devices/:id/enrollment    {} -> provisioning_token (shown once; 15 min)
+POST /device/provision                    {hardware_id,provisioning_token,name}
+                                         -> device_id,device_key,config_version,config,poll_interval_seconds
+POST /device/check-in                    Headers: x-device-id, x-device-key
+                                         {hardware_id,config_version,firmware_version}
+                                         -> config_version,config,poll_interval_seconds
+POST /api/admin/devices/:id/confirm       {physically_verified:true}
+POST /api/admin/devices/:id/disable       {}
+GET  /api/beacons/resolve?uuid=...&major=...&minor=...
 ```
 
-Send `Authorization: Bearer <API access token>` for every `/api` call. Install/flash the matching example iBeacon identity and verify on location **before** calling confirm. These endpoints register a device in PostgreSQL; they **do not** provision firmware, distribute Wi-Fi credentials, remotely disable a transmitter or verify radio transmission. The technician is responsible for physical disconnection when necessary.
+Wi-Fi-passord sendes **aldri** til backend – bare til lokal ESP32-portal. Enhetens rå nøkkel vises bare én gang ved innrullering, og backend lagrer hash. IBEACON UUID/Major/Minor kan offentliggjøres; de gir ingen rettighet i API. Innholdet for et rom hentes separat fra API-et.
 
-## Known next steps
-
-- Add a real provision/identity handshake and device credentials before connecting ESP32 to MQTT.
-- Build the React admin, Expo mobile and Tauri desktop clients on these contracts.
-- Add incident/guide editing, publication windows and anti-spam engine.
-- Add migration/e2e/security tests against running PostgreSQL and Entra test registration.
-- Integrate approved room data, Mime and HVL KI later.
-
-No GitHub Actions are used.
+**Status:** Pilotkode, ennå ikke bygget/kompilert mot faktisk PostgreSQL, Entra og ESP32. Utvidelser: redigere plassering/navn, credential revocation/rotation, OTA, flere tilgangsroller, end-to-end tester, adminopplevelse med QR og etikett.
