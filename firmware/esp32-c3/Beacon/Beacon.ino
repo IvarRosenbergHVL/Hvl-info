@@ -196,7 +196,11 @@ void page(const String &message="") {
   }
   html+="</select><label>SSID manuelt (skjulte nett)</label><input name='ssid_manual' maxlength='32'>";
   html+="<label>Wi-Fi-passord</label><input name='password' type='password' maxlength='64'>";
-  html+="<label>Engangskode fra HVL Info Admin</label><input name='token' maxlength='120' required>";
+  if (deviceKey.isEmpty()) {
+    html+="<label>Engangskode fra HVL Info Admin</label><input name='token' maxlength='120' required>";
+  } else {
+    html+="<p>Enheten er allerede registrert. Wi-Fi kan endres uten ny engangskode eller ny beacon-identitet.</p>";
+  }
   html+="<button>Ta i bruk</button></form><p>Dette oppsettet støtter WPA2-Personal; ikke eduroam/802.1X.</p></html>";
   WiFi.scanDelete();
   portal.sendHeader("Cache-Control","no-store");
@@ -205,7 +209,8 @@ void page(const String &message="") {
 }
 void startPortal() {
   if(portalRunning) return;
-  stopBeacon();
+  // Keep previously approved BLE identity while repairing Wi-Fi.
+  // AP+BLE coexistence must be verified on physical ESP32-C3 hardware.
   if(setupPassword.isEmpty()) {
     prefs.begin("hvl-beacon",false);
     setupPassword=prefs.getString("ap-pass","");
@@ -226,13 +231,13 @@ void startPortal() {
   portal.on("/",HTTP_GET,[](){page();});
   portal.on("/save",HTTP_POST,[](){
     if(portal.arg("name").length()<1 || portal.arg("name").length()>80 ||
-       portal.arg("token").length()<20 || portal.arg("token").length()>120) {
+       (deviceKey.isEmpty() && (portal.arg("token").length()<20 || portal.arg("token").length()>120))) {
       page("Ugyldig navn eller engangskode."); return;
     }
     displayName=portal.arg("name");
     wifiSsid=portal.arg("ssid_manual").isEmpty()?portal.arg("ssid"):portal.arg("ssid_manual");
     wifiPassword=portal.arg("password");
-    enrollmentToken=portal.arg("token");
+    enrollmentToken=deviceKey.isEmpty()?portal.arg("token"):"";
     if(wifiSsid.isEmpty() || wifiSsid.length()>32 || wifiPassword.length()>64) {
       page("Ugyldig Wi-Fi-navn/passord."); return;
     }
@@ -280,17 +285,16 @@ void setup() {
 }
 void loop() {
   if(portalRunning) { portal.handleClient(); delay(5); return; }
-  // Hold BOOT for 5 sec AFTER startup to reopen setup. Do not hold at power-on:
-  // GPIO9 is a strapping pin, so that could enter ROM download mode.
+  // Hold BOOT for 5 sec AFTER normal startup to REOPEN SETUP.
+  // Do not hold BOOT during RESET/power-on: GPIO9 LOW on reset enters the
+  // ESP32-C3 ROM firmware downloader, not this web setup portal.
   static uint32_t held=0;
   if(digitalRead(BOOT_PIN)==LOW) {
     if(!held) held=millis();
     if(millis()-held>5000) {
-      prefs.begin("hvl-beacon",false);
-      prefs.remove("ssid");prefs.remove("pass");prefs.remove("dev-key");
-      prefs.remove("dev-id");prefs.remove("beacon");
-      prefs.end();
-      wifiSsid="";wifiPassword="";deviceKey="";deviceId="";held=0;
+      // Recovery is NOT a factory reset: preserve chip binding, device key,
+      // cached iBeacon config and old Wi-Fi until new settings are saved.
+      held=0;
       startPortal();return;
     }
   } else held=0;

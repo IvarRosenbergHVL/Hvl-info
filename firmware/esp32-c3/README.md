@@ -6,7 +6,11 @@ Ved første oppstart starter ESP32 en WPA2-beskyttet midlertidig AP med SSID `HV
 
 ESP32 kobler seg til valgt nett, sender maskinvare-ID, navn og engangskode over **verifisert HTTPS** og får en per-enhet-nøkkel og UUID/Major/Minor. Den starter iBeacon og slår av Wi-Fi etter synkroniseringen. BLE-annonsering fortsetter. Ved neste oppstart og deretter omtrent hver time kobler den kortvarig til Wi-Fi, sjekker ønsket konfigurasjon, rapporterer firmware/config og slår Wi-Fi av igjen. Nettfeil lar sist lagrede BLE-oppsett fortsette; deaktivert enhet slutter først å annonsere når den har mottatt beskjed ved neste synk. Polling er **ikke sanntidsstyring**.
 
-Hold BOOT (GPIO9) i fem sekunder *etter normal oppstart* for nytt oppsett. Ikke hold knappen mens strøm settes på. For enheten med allerede brukt engangskode må admin lage en **ny** kode. Enheten lagrer Wi-Fi-passord og nøkkel i NVS; sikker produksjonsutrulling krever vurdering av flash encryption, fysisk beskyttelse, enhetsnett og legitimasjonsrotasjon.
+**Feilretting:** Trykk RESET én gang for normal restart. Hvis Wi-Fi ikke fungerer: vent til normal oppstart er fullført, og hold **BOOT alene i 5 sekunder**. Koble mobilen til enhetens lokale, passordbeskyttede oppsettnett, åpne `http://192.168.4.1` og velg et annet nett / oppdater passord. Det kreves **ikke ny engangskode** når enheten allerede er innrullert. Chipbinding, device key og tidligere BLE-konfigurasjon beholdes. Ved første gangs oppsett trengs fortsatt engangskode fra admin.
+
+Ikke hold BOOT under påslag eller sammen med RESET/EN: BOOT på GPIO9 lav under reset starter ESP32-C3 sin ROM-nedlastingsmodus, ikke oppsettsportalen. Hvis det skjer, slipp BOOT og trykk RESET alene. <br>
+
+Når enheten allerede har gyldig BLE-konfigurasjon, forsøker firmwaren å beholde den under nettverksfeil og mens lokal portal er åpen (reell Wi-Fi/BLE-samdrift må prøves på fysisk kort). Et forsøk på nytt Wi-Fi med feil passord skal ikke automatisk slette device key og kreve registrering av en ny chip. Enheten lagrer Wi-Fi-passord og nøkkel i NVS; sikker produksjonsutrulling krever vurdering av flash encryption, fysisk beskyttelse, enhetsnett og legitimasjonsrotasjon.
 
 **HVL Wi-Fi:** Firmware støtter nå 2,4 GHz WPA2-Personal/Open testnett, ikke eduroam/802.1X eller captive portal. Avtal en godkjent IoT-SSID og nettverkstilgang med IT. Telefonen må være på ESP32 sitt AP under lokal konfigurering, men trenger ikke Entra-login der. Admin krever Entra ID. Lokal setup-HTTP må aldri eksponeres på HVL-nettet.
 

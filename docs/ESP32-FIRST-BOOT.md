@@ -27,7 +27,8 @@ RabbitMQ beholdes for backend-jobber, eventuelle hendelser og senere enhetsscena
 - Engangskode og enhetsnøkkel må bare sendes videre over validerbar HTTPS med riktig CA og host. Ikke bruk `setInsecure()`; backend må publiseres på en HTTPS-adresse som enheten kan nå.
 - Per-enhet-nøkkel lagres som hash sentralt, rånøkkel bare på ESP32. NVS i pilot er **ikke** tilstrekkelig beskyttelse mot fysisk uthenting; flash encryption, secure boot, rotasjon og revokering må avklares for utrulling.
 - Sett opp en fysisk etikett/provisioning-kort med unik AP-SSID/passord. MAC/hardware-ID er offentlig identifikator, ikke autentisering.
-- Reset via BOOT (hold 5 sekunder etter vanlig oppstart) åpner setup igjen og sletter lokal nøkkel. Ny engangskode kreves for registrering på nytt.
+- Feilretting: RESET alene gir normal restart. Hold BOOT alene i fem sekunder **etter** vanlig oppstart for å åpne lokal portal og velge et nytt Wi-Fi-nett. Lokal enhetsnøkkel, chipbinding og sist godkjent BLE-konfigurasjon slettes ikke. Allerede innrullert enhet krever ikke ny engangskode bare for nettverksendring; ved første innrullering må engangskoden fremdeles legges inn.
+- Ikke hold BOOT samtidig med RESET/EN eller under påslag: det utløser ESP32-C3 ROM-download-modus, ikke vår oppsettside. Slipp BOOT og trykk RESET alene for vanlig firmwareoppstart. En reell fabrikktilbakestilling/erstatning av chip må være en separat, autorisert serviceflyt.
 
 ## Pilotens verifikasjon
 

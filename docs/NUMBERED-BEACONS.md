@@ -32,3 +32,7 @@ Fysisk kompilering/flash og ekte Entra-/PostgreSQL-tester, automatisk QR-/etiket
 Før «Bekreft i drift» blir tilgjengelig må enheten være registrert, ha en plassering, være provisionert og ha sendt en **autentisert HTTPS check-in de siste 15 minuttene** med `reported_version = config_version`. Firmwaren gjør en ekstra check-in umiddelbart etter første innrullering, så teknikeren behøver ikke vente til neste timesintervall.
 
 Teknikeren sammenligner det fysiske nummeret på kabinettet, stedet og UUID/Major/Minor som observeres med mobilen (f.eks. nRF Connect). Knappen «Bekreft i drift» registrerer tidspunkt, Entra-aktør og konfigurasjonsversjon. Det er en manuell fysisk bekreftelse, **ikke kontinuerlig bevis for at BLE sender**. «Sist kontakt» er siste periodiske nettøkt; etter 15 minutter blir ikke enheten automatisk deaktivert bare fordi Wi-Fi er av.
+
+## Feilretting i felt
+
+**RESET** alene starter enheten på nytt. **BOOT alene i 5 sekunder etter vanlig oppstart** åpner lokal, passordbeskyttet webportal for å endre Wi-Fi og eventuelt lokalt navn. Teknikeren trenger ikke generere ny engangskode for en allerede innrullert chip. Firmware må beholde chipbinding, device key og sist godkjente beacon-identitet; en feil SSID eller et feil passord skal ikke opprette en ny inventarenhet. Ikke hold BOOT samtidig med RESET eller under strømtilkobling: det er firmware-nedlastingsmodus, ikke oppsettsmodus på ESP32-C3. En fabrikkreset/hardwarebytte er en separat autorisert prosedyre, ikke standard feilretting.
