@@ -14,6 +14,7 @@ HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening
 - En felles inngang til HVLs KI-plattform og etter hvert Mime, med eksplisitt og begrenset stedskontekst.
 - Samme informasjon og tjenester i mobilapp og desktop-app (Windows/macOS).
 - En generisk plattform: Nye steder, sendere og innholdstyper opprettes i admin – ingen appoppdatering per rom eller kampanje.
+- IT/drift kan registrere, klargjøre, plassere, teste, flytte og avregistrere utplasserte ESP32-beacons i admin; se [enhetsregistrering og utplassering](docs/BEACON-PROVISIONING.md).
 
 ## Planlagt teknologistack
 
@@ -77,4 +78,4 @@ Monter noen ESP32-C3 SuperMini på USB-strøm. En Android- og en iOS-development
 
 ## Videre arbeid
 
-Les [docs/PLAN.md](docs/PLAN.md) og repoets hoved-issues. Begynn med gjennomførbarhetstesten for BLE/OS og domenemodellen, deretter én ende-til-ende romflyt. Desktop og utvidede integrasjoner kan bygges på de samme kontraktene.
+Les [docs/PLAN.md](docs/PLAN.md), [docs/BEACON-PROVISIONING.md](docs/BEACON-PROVISIONING.md) og repoets hoved-issues. Begynn med gjennomførbarhetstesten for BLE/OS og domenemodellen, deretter én ende-til-ende romflyt. Desktop og utvidede integrasjoner kan bygges på de samme kontraktene.
