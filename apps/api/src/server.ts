@@ -1,3 +1,4 @@
+import { randomBytes, createHash } from "node:crypto";
 import express, { type ErrorRequestHandler, type Request, type Response, type RequestHandler } from "express";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { Pool, type PoolClient } from "pg";
@@ -7,6 +8,8 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is required");
 const db = new Pool({ connectionString: databaseUrl });
 const app = express();
+const hash = (value: string) => createHash("sha256").update(value).digest("hex");
+const newSecret = () => randomBytes(32).toString("base64url");
 app.disable("x-powered-by");
 app.use(express.json({ limit: "32kb" }));
 
@@ -91,6 +94,71 @@ app.get("/health", asyncRoute(async (_req, res) => {
   await db.query("SELECT 1");
   res.json({ status: "ok" });
 }));
+// Devices do not use human Entra accounts; enrollment token is one-use and
+// device keys are random, individually revocable and stored only as hashes.
+// HTTPS must be enforced at ingress. Never send keys over a plain HTTP uplink.
+app.post("/device/provision", asyncRoute(async (req, res) => {
+  const v = body(req);
+  const hardware = text(v.hardware_id, "hardware_id", 100);
+  const enrollment = text(v.provisioning_token, "provisioning_token", 120);
+  const label = optional(v.name, "name", 80);
+  const key = newSecret();
+  const result = await transaction(async client => {
+    const { rows } = await client.query(`
+      SELECT t.id AS token_id,d.id,d.hardware_id,d.state,i.beacon_uuid,i.major,i.minor,i.measured_power
+      FROM device_provisioning_tokens t
+      JOIN beacon_devices d ON d.id=t.device_id
+      JOIN beacon_identities i ON i.device_id=d.id
+      JOIN beacon_placements p ON p.device_id=d.id AND p.removed_at IS NULL
+      WHERE t.token_hash=$1 AND t.consumed_at IS NULL AND t.expires_at > now()
+      FOR UPDATE OF t,d`, [hash(enrollment)]);
+    const device = rows[0];
+    if (!device || device.hardware_id !== hardware || device.state === "disabled")
+      throw new HttpError(401, "Unknown, expired or used enrollment token");
+    const used = await client.query(
+      "UPDATE device_provisioning_tokens SET consumed_at=now() WHERE id=$1 AND consumed_at IS NULL RETURNING id",
+      [device.token_id]);
+    if (!used.rowCount) throw new HttpError(401, "Enrollment already used");
+    await client.query("UPDATE device_credentials SET revoked_at=now() WHERE device_id=$1 AND revoked_at IS NULL",[device.id]);
+    await client.query("INSERT INTO device_credentials(device_id,key_hash) VALUES($1,$2)",[device.id,hash(key)]);
+    await client.query(
+      "UPDATE beacon_devices SET friendly_name=COALESCE($2,friendly_name),provisioned_at=now(),updated_at=now() WHERE id=$1",
+      [device.id,label]);
+    return device;
+  });
+  res.json({ device_id:result.id, device_key:key, poll_interval_seconds:3600,
+    config:{ uuid:result.beacon_uuid, major:result.major, minor:result.minor,
+      measured_power:result.measured_power, enabled:true } });
+}));
+app.post("/device/check-in", asyncRoute(async (req,res) => {
+  const id = uuid(req.header("x-device-id"), "x-device-id");
+  const key = text(req.header("x-device-key"), "x-device-key", 120);
+  const v = body(req);
+  const hardware = text(v.hardware_id,"hardware_id",100);
+  const firmware = optional(v.firmware_version,"firmware_version",48);
+  const reportedVersion = v.config_version;
+  if (reportedVersion !== undefined && (!Number.isInteger(reportedVersion) || (reportedVersion as number)<0))
+    throw new HttpError(400,"Invalid config_version");
+  const result = await transaction(async client => {
+    const {rows} = await client.query(`
+      SELECT d.id,d.state,d.hardware_id,d.config_version,i.beacon_uuid,i.major,i.minor,i.measured_power
+      FROM beacon_devices d
+      JOIN device_credentials c ON c.device_id=d.id AND c.revoked_at IS NULL
+      LEFT JOIN beacon_identities i ON i.device_id=d.id
+      WHERE d.id=$1 AND c.key_hash=$2 FOR UPDATE OF d`,[id,hash(key)]);
+    const d=rows[0];
+    if (!d || d.hardware_id !== hardware) throw new HttpError(401,"Invalid device identity");
+    await client.query(
+      "UPDATE beacon_devices SET last_seen_at=now(),firmware_version=COALESCE($2,firmware_version),reported_version=$3 WHERE id=$1",
+      [id,firmware,reportedVersion ?? null]);
+    return d;
+  });
+  // No need for an always-on MQTT connection: report once, download current
+  // desired state, then switch Wi-Fi off until the next scheduled check.
+  res.json({config_version:result.config_version, poll_interval_seconds:3600,
+    config:{uuid:result.beacon_uuid,major:result.major,minor:result.minor,
+      measured_power:result.measured_power, enabled:result.state!=="disabled" && Boolean(result.beacon_uuid)}});
+}));
 app.use("/api", mustBeSignedIn);
 
 app.get("/api/places", asyncRoute(async (req, res) => {
@@ -160,12 +228,41 @@ app.post("/api/admin/devices", asyncRoute(async (req,res) => {
   if (!/^[a-zA-Z0-9:._-]+$/.test(hardwareId)) throw new HttpError(400,"Invalid hardware_id");
   const device=await transaction(async client => {
     const {rows}=await client.query(
-      "INSERT INTO beacon_devices(hardware_id,asset_tag,model) VALUES($1,$2,$3) RETURNING *",
-      [hardwareId,optional(v.asset_tag,"asset_tag"),optional(v.model,"model") ?? "ESP32-C3 SuperMini"]);
+      "INSERT INTO beacon_devices(hardware_id,asset_tag,model,friendly_name) VALUES($1,$2,$3,$4) RETURNING *",
+      [hardwareId,optional(v.asset_tag,"asset_tag"),optional(v.model,"model") ?? "ESP32-C3 SuperMini",optional(v.friendly_name,"friendly_name",80)]);
     await audit(client,req,"device.registered",rows[0].id);
     return rows[0];
   });
   res.status(201).json(device);
+}));
+app.post("/api/admin/devices/:id/enrollment", asyncRoute(async (req,res) => {
+  const id=uuid(req.params.id), token=newSecret();
+  await transaction(async client => {
+    const {rows}=await client.query(`
+      SELECT d.id FROM beacon_devices d
+      JOIN beacon_identities i ON i.device_id=d.id
+      JOIN beacon_placements p ON p.device_id=d.id AND p.removed_at IS NULL
+      WHERE d.id=$1 AND d.state<>'disabled' FOR UPDATE OF d`,[id]);
+    if (!rows.length) throw new HttpError(409,"Place device and assign iBeacon identity first");
+    await client.query("DELETE FROM device_provisioning_tokens WHERE device_id=$1",[id]);
+    await client.query(`
+      INSERT INTO device_provisioning_tokens(device_id,token_hash,expires_at,issued_by)
+      VALUES($1,$2,now()+interval '15 minutes',$3)`,[id,hash(token),actor(req)]);
+    await audit(client,req,"device.enrollment.issued",id);
+  });
+  res.json({ provisioning_token:token, expires_in_seconds:900,
+    warning:"Show once to technician; enter only on the ESP32 local setup page."});
+}));
+app.patch("/api/admin/devices/:id",asyncRoute(async(req,res) => {
+  const id=uuid(req.params.id),v=body(req),name=text(v.friendly_name,"friendly_name",80);
+  const result=await transaction(async client => {
+    const {rows}=await client.query(
+      "UPDATE beacon_devices SET friendly_name=$2,updated_at=now() WHERE id=$1 RETURNING *",[id,name]);
+    if (!rows.length) throw new HttpError(404,"Device not found");
+    await audit(client,req,"device.renamed",id);
+    return rows[0];
+  });
+  res.json(result);
 }));
 app.post("/api/admin/devices/:id/placement", asyncRoute(async(req,res)=>{
   const id=uuid(req.params.id), v=body(req), placeId=uuid(v.place_id,"place_id");
@@ -178,7 +275,7 @@ app.post("/api/admin/devices/:id/placement", asyncRoute(async(req,res)=>{
     if (!place.rowCount) throw new HttpError(404,"Place not found");
     await client.query("UPDATE beacon_placements SET removed_at=now() WHERE device_id=$1 AND removed_at IS NULL",[id]);
     const {rows}=await client.query("INSERT INTO beacon_placements(device_id,place_id,role) VALUES($1,$2,$3) RETURNING *",[id,placeId,role]);
-    await client.query("UPDATE beacon_devices SET state='placed',updated_at=now() WHERE id=$1",[id]);
+    await client.query("UPDATE beacon_devices SET state='placed',config_version=config_version+1,updated_at=now() WHERE id=$1",[id]);
     await audit(client,req,"device.placed",id,{place_id:placeId,role});
     return rows[0];
   });
@@ -228,12 +325,13 @@ app.post("/api/admin/devices/:id/confirm", asyncRoute(async(req,res)=>{
 app.post("/api/admin/devices/:id/disable", asyncRoute(async(req,res)=>{
   const id=uuid(req.params.id);
   const result=await transaction(async client=>{
-    const {rows}=await client.query("UPDATE beacon_devices SET state='disabled',updated_at=now() WHERE id=$1 RETURNING *",[id]);
+    const {rows}=await client.query("UPDATE beacon_devices SET state='disabled',config_version=config_version+1,updated_at=now() WHERE id=$1 RETURNING *",[id]);
     if (!rows.length) throw new HttpError(404,"Device not found");
     await audit(client,req,"device.disabled.in_registry",id);
     return rows[0];
   });
-  // Registry disable does not physically stop an offline beacon: operator must unplug it.
+  // Registry disable will be observed on the next check-in, NOT instantly.
+  // A previously offline beacon cannot be remotely stopped until it reconnects.
   res.json({device:result,warning:"Registry disabled only: physically power off until remote control is implemented."});
 }));
 
