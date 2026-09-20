@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <time.h>
 #include <WiFi.h>
 #include <WebServer.h>
 #include <Preferences.h>
@@ -134,6 +135,14 @@ bool connectStation() {
   WiFi.begin(wifiSsid.c_str(),wifiPassword.c_str());
   for(int i=0;i<40 && WiFi.status()!=WL_CONNECTED;i++) delay(500);
   if(WiFi.status()!=WL_CONNECTED) { wifiOff(); return false; }
+  // The HTTPS certificate is not verifiable until the ESP32 has a trusted
+  // wall clock; establish UTC from the IT-approved NTP path, fail closed.
+  configTime(0,0,"pool.ntp.org","time.cloudflare.com");
+  for(int i=0;i<30 && time(nullptr)<1704067200;i++) delay(500);
+  if(time(nullptr)<1704067200) {
+    Serial.println("No trustworthy UTC clock/NTP; refusing HTTPS enrollment");
+    wifiOff(); return false;
+  }
   return true;
 }
 bool syncOnce() {

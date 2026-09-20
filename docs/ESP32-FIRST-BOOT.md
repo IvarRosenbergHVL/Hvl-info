@@ -21,6 +21,7 @@ RabbitMQ beholdes for backend-jobber, eventuelle hendelser og senere enhetsscena
 
 ## Nettverk og sikkerhet
 
+- Enheten trenger fungerende NTP for TLS-sertifikatvalidering ved første boot; avklar DNS, utgående HTTPS og NTP i IoT-nettet. Hvis klokken ikke kan synkroniseres, skal den ikke sende engangskode eller device key.
 - ESP32-C3 støtter bare 2,4 GHz. Pilotfirmware støtter WPA2-Personal eller åpent testnett; ikke anta at dette kan kobles direkte på **eduroam/802.1X**, captive portal eller et hvilket som helst HVL-SSID. Avklar et separat, godkjent, segmentert IoT-nett med IT før campus-pilot.
 - Lokal HTTP finnes bare på passordbeskyttet setup-AP; aldri eksponer portalen på campus Wi-Fi. Når telefonen bruker enhetens AP, kan mobilen melde «ingen internett» — behold tilkoblingen til konfigurasjon er lagret.
 - Engangskode og enhetsnøkkel må bare sendes videre over validerbar HTTPS med riktig CA og host. Ikke bruk `setInsecure()`; backend må publiseres på en HTTPS-adresse som enheten kan nå.
