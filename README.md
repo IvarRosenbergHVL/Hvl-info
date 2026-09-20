@@ -95,3 +95,7 @@ Etiketter, dokumentasjon og API-oppslag er ikke en erstatning for fysisk BLE-tes
 ## Nummererte kabinetter og automatisk BLE-identitet
 
 Teknikeren trenger bare nummeret som er preget på kabinettet (f.eks. `42`) og fysisk plassering i admin. Node.js oppretter intern UUID og tildeler unik Major/Minor under én felles system-UUID. ESP32-brikkens `hardware_id` registreres først når engangskoden brukes over HTTPS ved første oppsett. Det trykte nummeret er offentlig inventar-ID, **ikke en hemmelig autentiseringskode**. Les [inventar- og paringsflyten](docs/NUMBERED-BEACONS.md).
+
+## Teknikerveiledning
+
+[**Teknikerveiledning for ESP32-beacons**](docs/TECHNICIAN-GUIDE.md) er felles kilde for installasjon, mobiloppsett og feilretting. Samme Markdown-fil vises i React-admin via menyvalget «Teknikerveiledning»; endringer i filen følger neste admin-build.

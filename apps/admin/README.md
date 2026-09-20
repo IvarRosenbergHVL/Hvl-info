@@ -7,3 +7,8 @@ Copy `.env.example` to `.env`. Set tenant, SPA client ID and delegated API scope
 Setup code expires after 15 min. Physical BLE verification is manual. Deactivation is eventually consistent and will not immediately stop an offline beacon. Admin screens for renaming/replacing/moving and richer telemetry are follow-up work.
 
 **Bekreft i drift:** Enheten må først ha rapportert gjeldende konfigurasjon i en autentisert HTTPS check-in siste 15 minutter. Teknikeren kontrollerer fysisk kabinett-nummer og UUID/Major/Minor med mobil/nRF Connect på riktig sted, deretter lagrer admin tidspunkt, operatør og config-versjon. «Bekreftet i drift» er installasjonsstatus, mens «sist kontakt» er periodisk nettstatus; ingen av dem er konstant radiosporing.
+
+
+## Teknikerveiledning i admin
+
+Én vedlikeholdt kilde: [`docs/TECHNICIAN-GUIDE.md`](../../docs/TECHNICIAN-GUIDE.md). Admin importerer Markdown-filen med Vite `?raw` og viser den under «Teknikerveiledning» etter Entra-innlogging med `react-markdown`/`remark-gfm`. Oppdater **kun Markdown-filen** når prosedyren endres; den blir del av neste admin-build uten separat kopi eller runtime-kall til GitHub. Veiledningen beskriver første oppsett, lokal AP uten internett, fysisk bekreftelse, BOOT-basert gjenoppretting og feilsøking.
