@@ -4,7 +4,20 @@
 
 HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening og KI. En BLE-beacon kan gjøre appen oppmerksom på et område eller undervisningsrom; brukeren kan alltid finne det samme innholdet manuelt. Informasjon og handlinger styres i et felles administrasjonsgrensesnitt, ikke i firmware på hver sender.
 
-> **Status:** API, første React-admin og ESP32-S3-oppsettsportal med periodisk HTTPS-synk er kodet. USB/flashing og enkel iBeacon-annonsering er fysisk verifisert; full provisioning er ikke ende-til-ende-testet. Expo og Tauri gjenstår. Se [implementeringsstatus](docs/IMPLEMENTATION-STATUS.md) og [prosjektplanen](docs/PLAN.md).
+> **Status:** Den aktive MVP-en er nå bevisst forenklet: fire ESP32-S3 Super Mini kjører som faste iBeacon-sendere uten Wi-Fi eller provisioning. Backend og React-admin registrerer beaconnummer, lokasjon og proximity-utløst innhold. Entra ID er utsatt; admin er localhost-only som standard og kan midlertidig sikres med `ADMIN_API_KEY`. Den tidligere provisioning-koden ligger fortsatt i repoet som legacy-spor, men er ikke standard runtime.
+
+## Nåværende MVP
+
+- Fire ESP32-S3 Super Mini på USB-strøm.
+- Felles iBeacon UUID, `Major = 1`, `Minor = beaconnummer`.
+- Teknikeren plasserer enheten og registrerer bare beaconnummer + lokasjon i admin.
+- Ingen Wi-Fi, engangskode, enhetsnøkkel eller backend check-in på beaconen.
+- Mobilappen lager proximity-eventene `enter`, `near` og `exit` fra BLE/RSSI.
+- Backend leverer innhold for eventet: `fun_fact`, `manual`, `message` eller `link`.
+- Brukermanual kan knyttes til lokasjonen; fun fact og annet innhold kan knyttes til beacon eller lokasjon.
+- Admin har simulator for samme event-endpoint som mobilappen skal bruke.
+
+Se [proximity-eventkontrakten](docs/PROXIMITY-EVENTS.md).
 
 ## Hva vi vil oppnå
 
