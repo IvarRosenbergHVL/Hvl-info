@@ -5,7 +5,7 @@
 | Node.js API | Entra-basert admin, nummerert inventar + plassering i én operasjon, automatisk iBeacon-identitet, chipbinding ved engangskode og periodisk HTTPS check-in kodet |
 | PostgreSQL | Migrasjon 002 med engangstoken-hash, individuell enhetsnøkkel-hash, navn, siste sjekk og config-versjon |
 | React admin | Vite/React + MSAL: registrer nummer på kabinett og fysisk plassering; backend tildeler iBeacon. Generer engangskode, vis siste synk og manuell bekreftelse |
-| ESP32-C3 | Arduino-skisse med passordbeskyttet lokal AP/HTTP-webportal, SSID-liste, navn, innrullering over CA-validert HTTPS, iBeacon og periodisk Wi-Fi |
+| ESP32-S3 | Arduino-skisse med passordbeskyttet lokal AP/HTTP-webportal, SSID-liste, navn, innrullering over CA-validert HTTPS, non-connectable iBeacon og periodisk Wi-Fi. USB/flashing + enkel iBeacon er fysisk verifisert på ESP32-S3FH4R2; full flyt gjenstår |
 | RabbitMQ | Tilgjengelig for backend-jobber, ikke nødvendig som vedvarende ESP32-tilkobling |
 | Expo / Tauri / Mime | Fortsatt planlagt |
 | Teststatus | Ikke verifisert kompilering, oppkobling mot PostgreSQL/Entra, faktisk HTTPS eller fysisk ESP32 |
