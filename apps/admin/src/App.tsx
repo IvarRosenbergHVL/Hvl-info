@@ -1,86 +1,220 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { PublicClientApplication, InteractionRequiredAuthError } from "@azure/msal-browser";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import technicianGuide from "../../../docs/TECHNICIAN-GUIDE.md?raw";
 import "./style.css";
-type Place={id:string;campus:string;building:string;room_number:string|null;name:string};
-type Device={id:string;hardware_id:string|null;inventory_number:number|null;friendly_name:string|null;state:string;place_name:string|null;beacon_uuid:string|null;major:number|null;minor:number|null;last_seen_at:string|null;provisioned_at:string|null;verified_at:string|null;verified_by:string|null;config_version:number;reported_version:number|null};
-const tenant=import.meta.env.VITE_ENTRA_TENANT_ID as string|undefined;
-const clientId=import.meta.env.VITE_ENTRA_CLIENT_ID as string|undefined;
-const scope=import.meta.env.VITE_ENTRA_API_SCOPE as string|undefined;
-const msal=tenant&&clientId?new PublicClientApplication({auth:{clientId,authority:"https://login.microsoftonline.com/"+tenant,redirectUri:window.location.origin+"/"},cache:{cacheLocation:"sessionStorage"}}):null;
-export default function App(){
- const [ready,setReady]=useState(false),[loggedIn,setLoggedIn]=useState(false);
- const [showGuide,setShowGuide]=useState(false);
- const [busy,setBusy]=useState(false),[error,setError]=useState(""),[notice,setNotice]=useState("");
- const [places,setPlaces]=useState<Place[]>([]),[devices,setDevices]=useState<Device[]>([]);
- const [selectedPlace,setSelectedPlace]=useState(""),[number,setNumber]=useState("");
- 
- const [role,setRole]=useState("classroom_equipment");
- const [shownToken,setShownToken]=useState<{id:string;token:string}|null>(null);
- const [place,setPlace]=useState({campus:"",building:"",room_number:"",name:"",kind:"room"});
- useEffect(()=>{if(!msal){setReady(true);return;} void msal.initialize().then(()=>msal!.handleRedirectPromise()).then(()=>{setLoggedIn(msal!.getAllAccounts().length>0);setReady(true);}).catch(e=>{setError(String(e));setReady(true);});},[]);
- async function accessToken():Promise<string>{
-  if(!msal||!scope)throw Error("Entra-konfigurasjon mangler");
-  const account=msal.getAllAccounts()[0];if(!account)throw Error("Logg inn først");
-  try{return(await msal.acquireTokenSilent({account,scopes:[scope]})).accessToken;}
-  catch(e){if(e instanceof InteractionRequiredAuthError)await msal.acquireTokenRedirect({account,scopes:[scope]});throw e;}
- }
- async function api<T>(path:string,method="GET",payload?:object):Promise<T>{
-  const response=await fetch("/api"+path,{method,headers:{"Authorization":"Bearer "+await accessToken(),...(payload?{"Content-Type":"application/json"}:{})},body:payload?JSON.stringify(payload):undefined});
-  const data=await response.json();if(!response.ok)throw Error(data.error||"HTTP "+response.status);return data as T;
- }
- async function refresh(){const [p,d]=await Promise.all([api<{places:Place[]}>("/places"),api<{devices:Device[]}>("/admin/devices")]);setPlaces(p.places);setDevices(d.devices);}
- async function run(work:()=>Promise<void>){setBusy(true);setError("");setNotice("");try{await work();}catch(e){setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}}
- useEffect(()=>{if(loggedIn)void run(refresh);},[loggedIn]);
- async function addPlace(e:FormEvent){e.preventDefault();await run(async()=>{await api("/admin/places","POST",{...place,room_number:place.room_number||null});setPlace({campus:"",building:"",room_number:"",name:"",kind:"room"});await refresh();setNotice("Sted opprettet");});}
- async function register(e:FormEvent){e.preventDefault();await run(async()=>{
-  const inventory=Number(number);
-  if(!Number.isSafeInteger(inventory)||inventory<1)throw Error("Oppgi et positivt heltallsnummer fra kabinettet");
-  const d=await api<Device>("/admin/devices","POST",{
-    inventory_number:inventory,place_id:selectedPlace,role
-  });
-  setNotice("Beacon #"+inventory+" registrert med automatisk iBeacon-identitet. Opprett engangskode for oppsett.");
-  setNumber("");await refresh();
- });}
- async function issue(d:Device){await run(async()=>{
-  const r=await api<{provisioning_token:string}>("/admin/devices/"+d.id+"/enrollment","POST",{});
-  setShownToken({id:d.id,token:r.provisioning_token});setNotice("Koden vises én gang og utløper etter 15 minutter");
- });}
- async function confirm(d:Device){if(!confirmDialog("Har du kontrollert inventarnummer, fysisk plassering og riktig UUID/Major/Minor over BLE på stedet?"))return;
-  await run(async()=>{await api("/admin/devices/"+d.id+"/confirm","POST",{physically_verified:true});await refresh();setNotice("Installasjon er bekreftet av tekniker og lagret med tidspunkt.");});}
- async function disable(d:Device){if(!confirmDialog("Deaktivere? Enheten kan sende til neste periodiske sjekk. Trekk ut strøm hvis umiddelbar stopp er nødvendig."))return;
-  await run(async()=>{await api("/admin/devices/"+d.id+"/disable","POST",{});await refresh();setNotice("Deaktivert i registeret; sender stopper først etter neste vellykkede sjekk");});}
- function confirmDialog(msg:string){return window.confirm(msg);}
- if(!ready)return <main>Forbereder innlogging …</main>;
- if(!msal||!scope)return <main><h1>HVL Info Admin</h1><p>Konfigurer VITE_ENTRA_TENANT_ID, VITE_ENTRA_CLIENT_ID og VITE_ENTRA_API_SCOPE.</p></main>;
- if(!loggedIn)return <main><h1>HVL Info Admin</h1><button onClick={()=>void msal.loginRedirect({scopes:[scope]})}>Logg inn med Entra ID</button>{error&&<p role="alert">{error}</p>}</main>;
- return <main><header><div><h1>HVL Info</h1><p>Beaconadministrasjon</p></div><nav aria-label="Admin-navigasjon" className="admin-nav"><button type="button" aria-pressed={!showGuide} onClick={()=>setShowGuide(false)}>Enheter</button><button type="button" aria-pressed={showGuide} onClick={()=>setShowGuide(true)}>Teknikerveiledning</button><button onClick={()=>void msal.logoutRedirect()}>Logg ut</button></nav></header>
- {error&&<p role="alert" className="error">{error}</p>}{notice&&<p role="status" className="ok">{notice}</p>}
- {showGuide ? <section className="technician-guide" aria-label="Teknikerveiledning"><ReactMarkdown remarkPlugins={[remarkGfm]}>{technicianGuide}</ReactMarkdown></section> : <>
- <section><h2>1. Opprett sted</h2><form onSubmit={addPlace}>
- <label>Campus<input required value={place.campus} onChange={e=>setPlace({...place,campus:e.target.value})}/></label>
- <label>Bygg<input required value={place.building} onChange={e=>setPlace({...place,building:e.target.value})}/></label>
- <label>Romnummer<input value={place.room_number} onChange={e=>setPlace({...place,room_number:e.target.value})}/></label>
- <label>Stedsnavn<input required value={place.name} onChange={e=>setPlace({...place,name:e.target.value})}/></label>
- <label>Type<select value={place.kind} onChange={e=>setPlace({...place,kind:e.target.value})}>{["room","area","service","equipment"].map(x=><option key={x}>{x}</option>)}</select></label>
- <button disabled={busy}>Opprett sted</button></form></section>
- <section><h2>2. Registrer fysisk beacon</h2>
- <p>Les nummeret som er preget på kabinettet. Backenden tildeler intern enhets-ID og iBeacon-identitet; selve ESP32-chipen kobles til nummeret ved første oppsett.</p>
- <form onSubmit={register}>
- <label>Nummer på kabinettet<input required type="number" min="1" step="1" value={number} onChange={e=>setNumber(e.target.value)} placeholder="42"/></label>
- <label>Fysisk plassering<select required value={selectedPlace} onChange={e=>setSelectedPlace(e.target.value)}><option value="">Velg sted</option>{places.map(p=><option value={p.id} key={p.id}>{p.campus} / {p.building} / {p.room_number||p.name}</option>)}</select></label>
- <label>Type<select value={role} onChange={e=>setRole(e.target.value)}>{["classroom_equipment","area","service","equipment"].map(x=><option key={x}>{x}</option>)}</select></label>
- <button disabled={busy||!places.length}>Registrer beacon</button></form></section>
- {shownToken&&<section className="token"><h2>Engangskode – vises kun nå</h2><p>Registrert enhet: {devices.find(d=>d.id===shownToken.id)?.inventory_number??shownToken.id}. Koble mobil til enhetens midlertidige Wi-Fi, åpne http://192.168.4.1, velg Wi-Fi, sett navn og skriv inn koden.</p><code>{shownToken.token}</code><p>Gyldig 15 minutter. Wi-Fi-passord skrives kun på ESP32 sin lokale oppsettside.</p><button onClick={()=>setShownToken(null)}>Skjul kode</button> <button type="button" onClick={()=>setShowGuide(true)}>Åpne teknikerveiledning</button></section>}
- <section><h2>3. Enhetsoversikt</h2><button disabled={busy} onClick={()=>void run(refresh)}>Oppdater</button><div className="devices">
- {devices.map(d=><article key={d.id}><h3>{"#"+(d.inventory_number??"legacy")+(d.friendly_name?" · "+d.friendly_name:"")}</h3><p>{d.hardware_id||"Chip bindes ved første oppsett"} · {d.state} · {d.place_name||"Ikke plassert"}</p>
- <p>{d.beacon_uuid||"Mangler UUID"} / {d.major??"–"} / {d.minor??"–"}</p>
- <p><small>Sist kontakt: {d.last_seen_at?new Date(d.last_seen_at).toLocaleString("no-NO"):"Aldri"} · Konfig ønsket: {d.config_version}, rapportert: {d.reported_version??"–"}</small></p>
- <p><strong>{d.state==="disabled"?"Deaktivert i registeret":d.state==="active"?"Bekreftet i drift":!d.provisioned_at?"Venter på første oppsett":d.last_seen_at&&d.reported_version===d.config_version&&Date.now()-new Date(d.last_seen_at).getTime()<15*60*1000?"Klar for fysisk test":"Venter på oppdatert kontakt fra enheten"}</strong></p>
- {d.verified_at&&<p><small>Bekreftet av tekniker: {new Date(d.verified_at).toLocaleString("no-NO")}. Dette er ikke kontinuerlig bekreftelse på radiosignal.</small></p>}
- <div className="actions"><button disabled={busy||d.state==="disabled"} onClick={()=>void issue(d)}>Engangskode</button>
- <button disabled={busy||d.state==="disabled"||!d.provisioned_at||!d.last_seen_at||d.reported_version!==d.config_version||Date.now()-new Date(d.last_seen_at).getTime()>=15*60*1000} onClick={()=>void confirm(d)}>Bekreft i drift</button>
- <button disabled={busy||d.state==="disabled"} onClick={()=>void disable(d)}>Deaktiver</button></div></article>)}</div></section></>}</main>;
+
+type Place = {
+  id: string; campus: string; building: string; room_number: string | null;
+  name: string; manual_title: string | null; manual_markdown: string | null;
+};
+type Beacon = {
+  beacon_number: number; place_id: string; place_name: string; campus: string;
+  building: string; room_number: string | null; fun_fact_title: string | null;
+  fun_fact_text: string | null; enabled: boolean; uuid: string; major: number; minor: number;
+};
+type Config = { uuid: string; major: number; minor_is_beacon_number: boolean };
+type PlaceForm = {
+  campus: string; building: string; room_number: string; name: string;
+  manual_title: string; manual_markdown: string;
+};
+type BeaconForm = { place_id: string; fun_fact_title: string; fun_fact_text: string; enabled: boolean };
+const blankPlace = (): PlaceForm => ({
+  campus: "", building: "", room_number: "", name: "", manual_title: "", manual_markdown: ""
+});
+const blankBeacon = (): BeaconForm => ({ place_id: "", fun_fact_title: "", fun_fact_text: "", enabled: true });
+function locationLabel(p: Pick<Place, "campus" | "building" | "room_number" | "name">) {
+  return [p.campus, p.building, p.room_number, p.name].filter(Boolean).join(" · ");
+}
+
+export default function App() {
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [beacons, setBeacons] = useState<Beacon[]>([]);
+  const [config, setConfig] = useState<Config | null>(null);
+  const [key, setKey] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [placeEditing, setPlaceEditing] = useState<string | null>(null);
+  const [placeForm, setPlaceForm] = useState<PlaceForm>(blankPlace);
+  const [number, setNumber] = useState("");
+  const [beaconForm, setBeaconForm] = useState<BeaconForm>(blankBeacon);
+  const [beaconEditing, setBeaconEditing] = useState<number | null>(null);
+  const [preview, setPreview] = useState<number | null>(null);
+
+  async function api<T>(path: string, method = "GET", data?: object): Promise<T> {
+    const response = await fetch("/api" + path, {
+      method,
+      headers: {
+        ...(key ? { "X-Admin-Key": key } : {}),
+        ...(data ? { "Content-Type": "application/json" } : {})
+      },
+      body: data ? JSON.stringify(data) : undefined
+    });
+    const value: unknown = await response.json().catch(() => null);
+    if (!response.ok) {
+      const message = value && typeof value === "object" && "error" in value ? String(value.error) : "HTTP " + response.status;
+      throw Error(message);
+    }
+    return value as T;
+  }
+  async function refresh() {
+    const [p, b, c] = await Promise.all([
+      api<{ places: Place[] }>("/admin/places"),
+      api<{ beacons: Beacon[] }>("/admin/beacons"),
+      api<Config>("/config")
+    ]);
+    setPlaces(p.places); setBeacons(b.beacons); setConfig(c);
+  }
+  async function run(task: () => Promise<void>) {
+    setBusy(true); setError(""); setNotice("");
+    try { await task(); } catch (e) { setError(e instanceof Error ? e.message : String(e)); }
+    finally { setBusy(false); }
+  }
+  useEffect(() => { void run(refresh); }, []);
+
+  function editPlace(p: Place) {
+    setPlaceEditing(p.id);
+    setPlaceForm({
+      campus:p.campus,building:p.building,room_number:p.room_number ?? "",
+      name:p.name,manual_title:p.manual_title ?? "",manual_markdown:p.manual_markdown ?? ""
+    });
+  }
+  async function savePlace(e: FormEvent) {
+    e.preventDefault();
+    await run(async () => {
+      if (Boolean(placeForm.manual_title.trim()) !== Boolean(placeForm.manual_markdown.trim())) {
+        throw Error("Fyll inn både manualtittel og manualtekst, eller la begge stå tomme.");
+      }
+      const route = placeEditing ? "/admin/places/" + placeEditing : "/admin/places";
+      await api(route, placeEditing ? "PUT" : "POST", placeForm);
+      setPlaceForm(blankPlace()); setPlaceEditing(null);
+      await refresh(); setNotice("Lokasjonen er lagret.");
+    });
+  }
+  async function createBeacon(e: FormEvent) {
+    e.preventDefault();
+    await run(async () => {
+      const n = Number(number);
+      if (!Number.isInteger(n) || n < 1 || n > 65535) throw Error("Beaconnummer må være mellom 1 og 65535.");
+      if (Boolean(beaconForm.fun_fact_title.trim()) !== Boolean(beaconForm.fun_fact_text.trim())) {
+        throw Error("Fyll inn både fun fact-tittel og tekst, eller la begge stå tomme.");
+      }
+      await api("/admin/beacons", "POST", { beacon_number:n, ...beaconForm });
+      setNumber(""); setBeaconForm(blankBeacon());
+      await refresh(); setNotice("Beacon #" + n + " registrert. Ingen kontakt med ESP32 er nødvendig.");
+    });
+  }
+  function editBeacon(b: Beacon) {
+    setBeaconEditing(b.beacon_number);
+    setBeaconForm({
+      place_id:b.place_id,fun_fact_title:b.fun_fact_title ?? "",
+      fun_fact_text:b.fun_fact_text ?? "",enabled:b.enabled
+    });
+  }
+  async function saveBeacon(e: FormEvent) {
+    e.preventDefault();
+    if (beaconEditing === null) return;
+    await run(async () => {
+      if (Boolean(beaconForm.fun_fact_title.trim()) !== Boolean(beaconForm.fun_fact_text.trim())) {
+        throw Error("Fyll inn både fun fact-tittel og tekst, eller la begge stå tomme.");
+      }
+      await api("/admin/beacons/" + beaconEditing, "PUT", beaconForm);
+      setBeaconEditing(null); setBeaconForm(blankBeacon());
+      await refresh(); setNotice("Beacon #" + beaconEditing + " oppdatert.");
+    });
+  }
+  const selected = preview === null ? null : beacons.find(b => b.beacon_number === preview) ?? null;
+  const manual = selected?.manual_title && selected.manual_markdown
+    ? { title:selected.manual_title, markdown:selected.manual_markdown } : null;
+
+  return <main>
+    <header>
+      <div><p className="eyebrow">HVL INFO · MVP</p><h1>Fire beacons. Fire steder.</h1>
+        <p>Fast BLE-identitet på ESP32-S3 Super Mini. Innhold og plassering styres her.</p></div>
+      <div className="stat"><strong>{beacons.length}</strong><span>registrerte beacons</span></div>
+    </header>
+
+    <section className="settings">
+      <div><h2>API-tilgang</h2><p>Lokalt oppsett uten Entra ID. Nøkkel brukes bare dersom backend er konfigurert med ADMIN_API_KEY.</p></div>
+      <label>Adminnøkkel (valgfri lokalt)<input type="password" autoComplete="off" value={key} onChange={e => setKey(e.target.value)} placeholder="Kun hvis backend krever nøkkel" /></label>
+      <button type="button" disabled={busy} onClick={() => void run(refresh)}>Koble til / oppdater</button>
+      {config && <p className="identity">Felles UUID: <code>{config.uuid}</code> · Major: {config.major} · Minor: nummeret på beaconen</p>}
+    </section>
+    {error && <p role="alert" className="error">{error}</p>}
+    {notice && <p role="status" className="success">{notice}</p>}
+
+    <section>
+      <h2>1. Lokasjoner og brukermanualer</h2>
+      <p>Manualen tilhører lokasjonen, ikke beaconen. Du kan la manualfeltene stå tomme på to av stedene.</p>
+      <div className="place-grid">
+        {places.map(p => <article key={p.id} className="place-card">
+          <h3>{p.name}</h3><p>{locationLabel(p)}</p>
+          <span className={p.manual_title ? "tag" : "tag muted"}>{p.manual_title ? "Har brukermanual" : "Ingen manual"}</span>
+          <button type="button" className="secondary" disabled={busy} onClick={() => editPlace(p)}>Rediger sted</button>
+        </article>)}
+      </div>
+      <form onSubmit={savePlace}>
+        <h3>{placeEditing ? "Rediger lokasjon" : "Ny lokasjon"}</h3>
+        <div className="fields">
+          <label>Campus<input required maxLength={120} value={placeForm.campus} onChange={e => setPlaceForm({...placeForm,campus:e.target.value})}/></label>
+          <label>Bygg<input required maxLength={120} value={placeForm.building} onChange={e => setPlaceForm({...placeForm,building:e.target.value})}/></label>
+          <label>Romnummer (valgfritt)<input maxLength={40} value={placeForm.room_number} onChange={e => setPlaceForm({...placeForm,room_number:e.target.value})}/></label>
+          <label>Navn<input required maxLength={120} value={placeForm.name} onChange={e => setPlaceForm({...placeForm,name:e.target.value})}/></label>
+        </div>
+        <label>Brukermanual – tittel (valgfritt)<input maxLength={120} value={placeForm.manual_title} onChange={e => setPlaceForm({...placeForm,manual_title:e.target.value})}/></label>
+        <label>Brukermanual – Markdown (valgfritt)<textarea rows={7} maxLength={16000} value={placeForm.manual_markdown} onChange={e => setPlaceForm({...placeForm,manual_markdown:e.target.value})} placeholder="## Slik bruker du utstyret …"/></label>
+        <div className="actions"><button disabled={busy} type="submit">{placeEditing ? "Lagre lokasjon" : "Opprett lokasjon"}</button>
+          {placeEditing && <button type="button" className="secondary" onClick={() => {setPlaceEditing(null);setPlaceForm(blankPlace());}}>Avbryt</button>}</div>
+      </form>
+    </section>
+
+    <section>
+      <h2>2. Registrer beacon</h2><p>Bruk nummeret som allerede ligger i firmware og står på enheten. Ingen oppsett, Wi-Fi eller innrullering.</p>
+      <form onSubmit={createBeacon}>
+        <div className="fields">
+          <label>Beaconnummer<input required min={1} max={65535} step={1} type="number" value={number} onChange={e => setNumber(e.target.value)} placeholder="1–4"/></label>
+          <label>Lokasjon<select required value={beaconForm.place_id} onChange={e => setBeaconForm({...beaconForm,place_id:e.target.value})}>
+            <option value="">Velg lokasjon</option>{places.map(p => <option key={p.id} value={p.id}>{locationLabel(p)}</option>)}
+          </select></label>
+        </div>
+        <label>Fun fact – tittel<input maxLength={120} value={beaconForm.fun_fact_title} onChange={e => setBeaconForm({...beaconForm,fun_fact_title:e.target.value})}/></label>
+        <label>Fun fact – tekst<textarea rows={3} maxLength={16000} value={beaconForm.fun_fact_text} onChange={e => setBeaconForm({...beaconForm,fun_fact_text:e.target.value})}/></label>
+        <button disabled={busy || !places.length} type="submit">Registrer beacon</button>
+      </form>
+    </section>
+
+    <section>
+      <h2>3. Registrerte beacons</h2>
+      <p>Deaktivert betyr at backend ikke leverer innhold; selve ESP32 fortsetter å sende BLE til strømmen kobles fra.</p>
+      <div className="beacon-grid">
+        {beacons.map(b => <article key={b.beacon_number} className="beacon-card">
+          <div className="card-top"><h3>#{b.beacon_number}</h3><span className={b.enabled ? "tag" : "tag muted"}>{b.enabled ? "Aktiv i backend" : "Skjult i backend"}</span></div>
+          <p>{[b.campus,b.building,b.room_number,b.place_name].filter(Boolean).join(" · ")}</p>
+          <p className="identity">Major {b.major} · Minor {b.minor}</p>
+          <p>{b.fun_fact_title ? "Fun fact: " + b.fun_fact_title : "Fun fact mangler"} · {b.manual_title ? "Har manual" : "Ingen manual"}</p>
+          <div className="actions"><button type="button" disabled={busy} onClick={() => editBeacon(b)}>Rediger</button>
+            <button type="button" className="secondary" onClick={() => setPreview(preview === b.beacon_number ? null : b.beacon_number)}>Forhåndsvis</button></div>
+        </article>)}
+      </div>
+      {beaconEditing !== null && <form className="editor" onSubmit={saveBeacon}>
+        <h3>Rediger beacon #{beaconEditing}</h3>
+        <label>Lokasjon<select required value={beaconForm.place_id} onChange={e => setBeaconForm({...beaconForm,place_id:e.target.value})}>
+          <option value="">Velg lokasjon</option>{places.map(p => <option key={p.id} value={p.id}>{locationLabel(p)}</option>)}
+        </select></label>
+        <label>Fun fact – tittel<input maxLength={120} value={beaconForm.fun_fact_title} onChange={e => setBeaconForm({...beaconForm,fun_fact_title:e.target.value})}/></label>
+        <label>Fun fact – tekst<textarea rows={3} maxLength={16000} value={beaconForm.fun_fact_text} onChange={e => setBeaconForm({...beaconForm,fun_fact_text:e.target.value})}/></label>
+        <label className="check"><input type="checkbox" checked={beaconForm.enabled} onChange={e => setBeaconForm({...beaconForm,enabled:e.target.checked})}/> Vis beaconinnhold i appen</label>
+        <div className="actions"><button disabled={busy} type="submit">Lagre endringer</button>
+          <button className="secondary" type="button" onClick={() => {setBeaconEditing(null);setBeaconForm(blankBeacon());}}>Avbryt</button></div>
+      </form>}
+      {selected && <div className="preview">
+        <h3>Mobilinnhold – beacon #{selected.beacon_number}</h3>
+        <p>{[selected.campus,selected.building,selected.room_number,selected.place_name].filter(Boolean).join(" · ")}</p>
+        {selected.fun_fact_title ? <article><h4>{selected.fun_fact_title}</h4><p>{selected.fun_fact_text}</p></article> : <p>Ingen fun fact ennå.</p>}
+        {manual ? <article><h4>{manual.title}</h4><ReactMarkdown remarkPlugins={[remarkGfm]}>{manual.markdown}</ReactMarkdown></article> : <p>Ingen brukermanual på denne lokasjonen.</p>}
+        {!selected.enabled && <p className="error">Beaconen er skjult i det offentlige API-et.</p>}
+      </div>}
+      {!beacons.length && <p>Ingen beacons registrert ennå. Opprett et sted og registrer #1–#4.</p>}
+    </section>
+  </main>;
 }
