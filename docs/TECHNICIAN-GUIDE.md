@@ -1,6 +1,6 @@
 # Teknikerveiledning: Registrere og sette opp en HVL Info-beacon
 
-Denne veiledningen gjelder pilotløsningen med **ESP32-C3 SuperMini i nummerert kabinett**. Den beskriver både første oppsett og feilretting. Firmware, backend og admin må være klargjort og testet før enheten settes i ordinær drift på campus.
+Denne veiledningen gjelder pilotløsningen med **ESP32-S3 SuperMini i nummerert kabinett**. Den beskriver både første oppsett og feilretting. Firmware, backend og admin må være klargjort og testet før enheten settes i ordinær drift på campus.
 
 ## Før du begynner
 
@@ -64,7 +64,7 @@ Admin lagrer tidspunkt og hvem som bekreftet. «Bekreftet i drift» er en **inst
 | Ingen BLE oppdages | Sjekk strøm og at enheten er registrert, ikke deaktivert. Kontroller fysisk avstand/antenneplassering og test med BLE-skanner. Ikke trykk «Bekreft i drift» uten å observere riktig identitet. |
 | Feil rom eller feil kabinett-nummer | Ikke bekreft. Rett opp inventar/plassering via autorisert administrasjonsflyt; ikke overta en annen chips identitet med en ny kode. |
 
-**BOOT + RESET er ikke feilrettingskombinasjonen.** Hvis BOOT holdes inne samtidig med RESET eller ved påslag, kan ESP32-C3 starte ROM-modus for firmware-nedlasting. Slipp BOOT og trykk RESET alene. BOOT etter **normal** oppstart åpner vår lokale oppsettsportal.
+**BOOT + RESET er ikke feilrettingskombinasjonen.** Hvis BOOT holdes inne samtidig med RESET eller ved påslag, starter ESP32-S3 ROM-modus for firmware-nedlasting fordi BOOT er GPIO0 på den testede SuperMini-varianten. Slipp BOOT og trykk RESET alene. BOOT etter **normal** oppstart åpner vår lokale oppsettsportal.
 
 **Ikke fabrikktilbakestill ved vanlig Wi-Fi-feil.** Recovery via BOOT skal bevare chipbinding, enhetsnøkkel og siste godkjente iBeacon-konfigurasjon. Ved fysisk defekt chip eller nødvendig nøkkelrotasjon må IT følge en separat, autorisert erstatningsprosedyre; den er ikke ferdig implementert i piloten.
 
