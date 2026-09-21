@@ -4,8 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=.env --import tsx --watch src/server.ts",
-    "start": "node --env-file=.env dist/server.js",
+    "dev": "node --env-file=.env --import tsx --watch src/mvp-server.ts",
+    "start": "node --env-file=.env dist/mvp-server.js",
+    "dev:legacy": "node --env-file=.env --import tsx --watch src/server.ts",
+    "start:legacy": "node --env-file=.env dist/server.js",
     "build": "tsc -p tsconfig.json",
     "db:migrate": "node --env-file=.env --import tsx src/migrate.ts"
   },
