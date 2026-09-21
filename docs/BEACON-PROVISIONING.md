@@ -1,6 +1,6 @@
-# Registrering og utplassering av ESP32-C3-beacons
+# Registrering og utplassering av ESP32-S3-beacons
 
-**Implementering:** Første Entra-beskyttede React-admin, API med engangskoder/individuelle enhetsnøkler, ESP32 lokal webportal og periodisk HTTPS-sjekk er kodet. Ikke validert på faktisk SuperMini/HVL-nett/Entra ennå. Se [ESP32-FIRST-BOOT.md](ESP32-FIRST-BOOT.md) og [implementeringsstatus](IMPLEMENTATION-STATUS.md).
+**Implementering:** Første Entra-beskyttede React-admin, API med engangskoder/individuelle enhetsnøkler, ESP32 lokal webportal og periodisk HTTPS-sjekk er kodet. USB/flashing og enkel iBeacon-annonsering er validert på faktisk ESP32-S3 SuperMini; lokal portal, HVL-nett, Entra og full provisioning gjenstår. Se [ESP32-FIRST-BOOT.md](ESP32-FIRST-BOOT.md) og [implementeringsstatus](IMPLEMENTATION-STATUS.md).
 
 ## Hva IT gjør
 
