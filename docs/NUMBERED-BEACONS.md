@@ -1,6 +1,6 @@
 # Nummererte fysiske beacons – registrering uten tekniske ID-er
 
-**Beslutning:** ESP32-C3-enhetene monteres i 3D-printede kabinetter med et synlig nummer preget inn i plasten fra 1 og oppover, eksempelvis **42**. Dette nummeret er inventarnummer og det eneste en tekniker behøver å taste for å opprette enheten i admin. Samme nummer skal ikke forveksles med iBeacon Major/Minor, chipens maskinvare-ID eller en sikkerhetskode.
+**Beslutning:** ESP32-S3-enhetene monteres i 3D-printede kabinetter med et synlig nummer preget inn i plasten fra 1 og oppover, eksempelvis **42**. Dette nummeret er inventarnummer og det eneste en tekniker behøver å taste for å opprette enheten i admin. Samme nummer skal ikke forveksles med iBeacon Major/Minor, chipens maskinvare-ID eller en sikkerhetskode.
 
 ## Enklere feltflyt
 
@@ -35,4 +35,4 @@ Teknikeren sammenligner det fysiske nummeret på kabinettet, stedet og UUID/Majo
 
 ## Feilretting i felt
 
-**RESET** alene starter enheten på nytt. **BOOT alene i 5 sekunder etter vanlig oppstart** åpner lokal, passordbeskyttet webportal for å endre Wi-Fi og eventuelt lokalt navn. Teknikeren trenger ikke generere ny engangskode for en allerede innrullert chip. Firmware må beholde chipbinding, device key og sist godkjente beacon-identitet; en feil SSID eller et feil passord skal ikke opprette en ny inventarenhet. Ikke hold BOOT samtidig med RESET eller under strømtilkobling: det er firmware-nedlastingsmodus, ikke oppsettsmodus på ESP32-C3. En fabrikkreset/hardwarebytte er en separat autorisert prosedyre, ikke standard feilretting.
+**RESET** alene starter enheten på nytt. **BOOT alene i 5 sekunder etter vanlig oppstart** åpner lokal, passordbeskyttet webportal for å endre Wi-Fi og eventuelt lokalt navn. Teknikeren trenger ikke generere ny engangskode for en allerede innrullert chip. Firmware må beholde chipbinding, device key og sist godkjente beacon-identitet; en feil SSID eller et feil passord skal ikke opprette en ny inventarenhet. Ikke hold BOOT samtidig med RESET eller under strømtilkobling: det er firmware-nedlastingsmodus (GPIO0 lav ved reset), ikke oppsettsmodus på ESP32-S3. En fabrikkreset/hardwarebytte er en separat autorisert prosedyre, ikke standard feilretting.
