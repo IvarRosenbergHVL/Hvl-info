@@ -1,6 +1,6 @@
 # ESP32 førsteoppsett: mobilportal og periodisk nett
 
-Dette er beslutningen for **MVP**: ESP32-C3 er først og fremst en **lokal iBeacon-sender**. Den trenger ikke være kontinuerlig på Wi-Fi eller MQTT. En kort HTTPS-økt ved installasjon, oppstart og deretter ca. hver time er tilstrekkelig for normalt innhold og konfigurasjon.
+Dette er beslutningen for **MVP**: ESP32-S3 er først og fremst en **lokal iBeacon-sender**. Den trenger ikke være kontinuerlig på Wi-Fi eller MQTT. En kort HTTPS-økt ved installasjon, oppstart og deretter ca. hver time er tilstrekkelig for normalt innhold og konfigurasjon.
 
 ## Brukerflyt
 1. IT oppretter fysisk enhet i Entra-beskyttet React-admin. Registrer bare det nummeret som er preget på kabinettet, og velg fysisk plassering og rolle. Backend tildeler intern UUID og unik iBeacon Major/Minor automatisk; chipens maskinvare-ID knyttes til nummeret ved første oppsett. Romnummer og manualer forblir på stedet.
@@ -22,13 +22,13 @@ RabbitMQ beholdes for backend-jobber, eventuelle hendelser og senere enhetsscena
 ## Nettverk og sikkerhet
 
 - Enheten trenger fungerende NTP for TLS-sertifikatvalidering ved første boot; avklar DNS, utgående HTTPS og NTP i IoT-nettet. Hvis klokken ikke kan synkroniseres, skal den ikke sende engangskode eller device key.
-- ESP32-C3 støtter bare 2,4 GHz. Pilotfirmware støtter WPA2-Personal eller åpent testnett; ikke anta at dette kan kobles direkte på **eduroam/802.1X**, captive portal eller et hvilket som helst HVL-SSID. Avklar et separat, godkjent, segmentert IoT-nett med IT før campus-pilot.
+- ESP32-S3 støtter bare 2,4 GHz. Pilotfirmware støtter WPA2-Personal eller åpent testnett; ikke anta at dette kan kobles direkte på **eduroam/802.1X**, captive portal eller et hvilket som helst HVL-SSID. Avklar et separat, godkjent, segmentert IoT-nett med IT før campus-pilot.
 - Lokal HTTP finnes bare på passordbeskyttet setup-AP; aldri eksponer portalen på campus Wi-Fi. Når telefonen bruker enhetens AP, kan mobilen melde «ingen internett» — behold tilkoblingen til konfigurasjon er lagret.
 - Engangskode og enhetsnøkkel må bare sendes videre over validerbar HTTPS med riktig CA og host. Ikke bruk `setInsecure()`; backend må publiseres på en HTTPS-adresse som enheten kan nå.
 - Per-enhet-nøkkel lagres som hash sentralt, rånøkkel bare på ESP32. NVS i pilot er **ikke** tilstrekkelig beskyttelse mot fysisk uthenting; flash encryption, secure boot, rotasjon og revokering må avklares for utrulling.
 - Sett opp en fysisk etikett/provisioning-kort med unik AP-SSID/passord. MAC/hardware-ID er offentlig identifikator, ikke autentisering.
 - Feilretting: RESET alene gir normal restart. Hold BOOT alene i fem sekunder **etter** vanlig oppstart for å åpne lokal portal og velge et nytt Wi-Fi-nett. Lokal enhetsnøkkel, chipbinding og sist godkjent BLE-konfigurasjon slettes ikke. Allerede innrullert enhet krever ikke ny engangskode bare for nettverksendring; ved første innrullering må engangskoden fremdeles legges inn.
-- Ikke hold BOOT samtidig med RESET/EN eller under påslag: det utløser ESP32-C3 ROM-download-modus, ikke vår oppsettside. Slipp BOOT og trykk RESET alene for vanlig firmwareoppstart. En reell fabrikktilbakestilling/erstatning av chip må være en separat, autorisert serviceflyt.
+- Ikke hold BOOT samtidig med RESET/EN eller under påslag med mindre du vil flashe: BOOT er GPIO0 på den testede ESP32-S3 SuperMini, og GPIO0 lav under reset utløser ROM-download-modus, ikke vår oppsettside. Slipp BOOT og trykk RESET alene for vanlig firmwareoppstart. En reell fabrikktilbakestilling/erstatning av chip må være en separat, autorisert serviceflyt.
 
 ## Pilotens verifikasjon
 
@@ -42,7 +42,7 @@ RabbitMQ beholdes for backend-jobber, eventuelle hendelser og senere enhetsscena
 - Admin viser sist synk og ønsket/rapportert versjon uten å love umiddelbar fjernstopp.
 
 ### Implementeringsstatus
-React-admin og firmwareportal er **skrevet, ikke ennå testet mot fysisk enhet/HVL tenant/nett**. API-endepunktene for én gangs registrering og periodisk HTTPS-sjekk er lagt inn, men krever Entra- og TLS-konfigurasjon før bruk.
+React-admin og firmwareportal er **skrevet**. USB/flashing og en enkel iBeacon-test er verifisert på fysisk ESP32-S3; lokal portal, HVL tenant/nett og full provisioning er ikke ende-til-ende-testet. API-endepunktene for én gangs registrering og periodisk HTTPS-sjekk er lagt inn, men krever Entra- og TLS-konfigurasjon før bruk.
 
 
 Se [NUMBERED-BEACONS.md](NUMBERED-BEACONS.md) for nummererte kabinetter, automatisk Major/Minor, engangskode og chipbinding.
