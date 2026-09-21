@@ -4,7 +4,7 @@
 
 HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening og KI. En BLE-beacon kan gjøre appen oppmerksom på et område eller undervisningsrom; brukeren kan alltid finne det samme innholdet manuelt. Informasjon og handlinger styres i et felles administrasjonsgrensesnitt, ikke i firmware på hver sender.
 
-> **Status:** API, første React-admin og ESP32-C3-oppsettsportal med periodisk HTTPS-synk er kodet, men ikke fysisk testet. Expo og Tauri gjenstår. Se [implementeringsstatus](docs/IMPLEMENTATION-STATUS.md) og [prosjektplanen](docs/PLAN.md).
+> **Status:** API, første React-admin og ESP32-S3-oppsettsportal med periodisk HTTPS-synk er kodet. USB/flashing og enkel iBeacon-annonsering er fysisk verifisert; full provisioning er ikke ende-til-ende-testet. Expo og Tauri gjenstår. Se [implementeringsstatus](docs/IMPLEMENTATION-STATUS.md) og [prosjektplanen](docs/PLAN.md).
 
 ## Hva vi vil oppnå
 
@@ -28,7 +28,7 @@ HVL Info knytter fysiske steder og utstyr til aktuell informasjon, selvbetjening
 | Mobil | React Native + Expo, Android/iOS; development builds for nødvendige native BLE-funksjoner |
 | Desktop | Tauri + React, Windows/macOS; native BLE-adapter/plugin undersøkes og testes |
 | Admin | React; designsystemet.no der komponenter egner seg |
-| Beacon / edge | ESP32-C3 SuperMini med iBeacon over BLE, lokal Wi-Fi-portal på første boot, deretter periodisk HTTPS over 2,4 GHz og USB-strøm |
+| Beacon / edge | ESP32-S3 SuperMini med iBeacon over BLE, lokal Wi-Fi-portal på første boot, deretter periodisk HTTPS over 2,4 GHz og USB-strøm |
 | Integrasjoner | HVL KI, Mime, rom-/utstyrsregister og eventuelt supportsystem/kalender når avklart |
 
 Dette er en plan, ikke en påstand om at disse integrasjonene allerede finnes.
@@ -48,7 +48,7 @@ Hvl-info/
 │   ├── domain/          # Delt domenelogikk som ikke er klientspesifikk
 │   └── ui/              # Gjenbrukbare webkomponenter der det gir mening
 ├── firmware/
-│   └── esp32-c3/        # BLE + Wi-Fi + konfigurasjon + sikker oppdatering
+│   └── esp32-s3/        # BLE + Wi-Fi + konfigurasjon + sikker oppdatering
 ├── hardware/
 │   └── enclosure/       # 3D-print / monteringsgrunnlag
 ├── infra/               # Lokal PostgreSQL/RabbitMQ, senere K8s-manifester
@@ -72,7 +72,7 @@ Ingen selvstendige repoer er planlagt for klientene eller backend. Delte typer o
 
 ## Første demo
 
-Monter noen ESP32-C3 SuperMini på USB-strøm. En Android- og en iOS-development build skal kunne identifisere beacon, slå opp riktig rom og vise rommanual. Når avvik er registrert i admin skal det vises på romsiden. Søk på romnummer skal fungere identisk uten beacon. En tidsstyrt melding fra læringslabben skal kunne publiseres og vises uten ny firmware eller app-build. En Mime/HVL KI-knapp skal kunne åpne en samtale med avgrenset stedskontekst hvis integrasjonen er tilgjengelig.
+Monter noen ESP32-S3 SuperMini på USB-strøm. En Android- og en iOS-development build skal kunne identifisere beacon, slå opp riktig rom og vise rommanual. Når avvik er registrert i admin skal det vises på romsiden. Søk på romnummer skal fungere identisk uten beacon. En tidsstyrt melding fra læringslabben skal kunne publiseres og vises uten ny firmware eller app-build. En Mime/HVL KI-knapp skal kunne åpne en samtale med avgrenset stedskontekst hvis integrasjonen er tilgjengelig.
 
 **Tidlig risikopunkt:** Valider reell bakgrunnsoppdagelse, tillatelser og batteriforbruk på fysiske iPhone- og Android-enheter før vi lover automatisk varsling i alle situasjoner. Vanlig Expo Go er ikke tilstrekkelig for å teste alle native BLE-behov.
 
@@ -85,7 +85,7 @@ Les [docs/PLAN.md](docs/PLAN.md), [docs/BEACON-PROVISIONING.md](docs/BEACON-PROV
 - [`apps/api`](apps/api/README.md): første Entra-beskyttede Node.js API for romsøk, registrering, plassering og manuell verifisering av utplasserte enheter.
 - [`packages/contracts`](packages/contracts/src/index.ts): iBeacon UUID/Major/Minor og 25-byte produsentdata med tester.
 - [`apps/admin`](apps/admin/README.md): første Entra-beskyttede React-admin for steder, ESP32-registrering og engangskoder.
-- [`firmware/esp32-c3`](firmware/esp32-c3/README.md): ESP32-C3 med lokalt mobiloppsett, iBeacon og periodisk HTTPS (pilotkode).
+- [`firmware/esp32-s3`](firmware/esp32-s3/README.md): ESP32-C3 med lokalt mobiloppsett, iBeacon og periodisk HTTPS (pilotkode).
 - [`infra/compose.yaml`](infra/compose.yaml): lokal PostgreSQL og RabbitMQ (RabbitMQ er ikke nødvendig på selve ESP32).
 - [Oppsettsflyt for ESP32](docs/ESP32-FIRST-BOOT.md): første boot via mobil, Wi-Fi, navn, innrullering og sjeldne nettøkter.
 
