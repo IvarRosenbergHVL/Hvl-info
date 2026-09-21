@@ -85,7 +85,7 @@ Les [docs/PLAN.md](docs/PLAN.md), [docs/BEACON-PROVISIONING.md](docs/BEACON-PROV
 - [`apps/api`](apps/api/README.md): første Entra-beskyttede Node.js API for romsøk, registrering, plassering og manuell verifisering av utplasserte enheter.
 - [`packages/contracts`](packages/contracts/src/index.ts): iBeacon UUID/Major/Minor og 25-byte produsentdata med tester.
 - [`apps/admin`](apps/admin/README.md): første Entra-beskyttede React-admin for steder, ESP32-registrering og engangskoder.
-- [`firmware/esp32-s3`](firmware/esp32-s3/README.md): ESP32-C3 med lokalt mobiloppsett, iBeacon og periodisk HTTPS (pilotkode).
+- [`firmware/esp32-s3`](firmware/esp32-s3/README.md): ESP32-S3 med lokalt mobiloppsett, non-connectable iBeacon og periodisk HTTPS (pilotkode).
 - [`infra/compose.yaml`](infra/compose.yaml): lokal PostgreSQL og RabbitMQ (RabbitMQ er ikke nødvendig på selve ESP32).
 - [Oppsettsflyt for ESP32](docs/ESP32-FIRST-BOOT.md): første boot via mobil, Wi-Fi, navn, innrullering og sjeldne nettøkter.
 
