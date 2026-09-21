@@ -11,7 +11,7 @@ Et KI- og posisjonsdrevet informasjonssystem for studenter og ansatte. Riktig ro
 - Node.js og TypeScript for API og worker; PostgreSQL med migrasjoner; RabbitMQ for asynkrone jobber og enhetsmeldinger.
 - React til admin; React Native med Expo development builds til iOS/Android; Tauri med React til Windows/macOS.
 - **Microsoft Entra ID** som autentisering for studenter og ansatte i alle tre klienter. OIDC/OAuth 2.0 Authorization Code + PKCE, systemnettleser og korrekt redirect-flyt per klient. API validerer issuer, audience, signatur, levetid og relevante scopes/roller. Administrasjon autoriseres på server, ikke av skjulte UI-elementer. Ikke lag egen passordløsning.
-- ESP32-C3 SuperMini: **iBeacon over BLE** er valgt som første annonseringsformat; Wi-Fi og USB-strøm i 3D-printet kapsling. ESP32 henter ønsket konfigurasjon via periodisk HTTPS; RabbitMQ (AMQP) kan brukes til backend-jobber, men er ikke en kontinuerlig enhetsforbindelse.
+- ESP32-S3 SuperMini: **iBeacon over BLE** er valgt som første annonseringsformat; Wi-Fi og USB-strøm i 3D-printet kapsling. ESP32 henter ønsket konfigurasjon via periodisk HTTPS; RabbitMQ (AMQP) kan brukes til backend-jobber, men er ikke en kontinuerlig enhetsforbindelse.
 - Integrasjonsadaptere for HVL KI/Mime, rom/utstyr, driftsavvik og senere timeplan og øvrige HVL-tjenester. Anta ikke at adapterne allerede finnes.
 
 ## Foreslått monorepo
@@ -27,7 +27,7 @@ packages/
   contracts/            # Delte DTO-er, validering, API-/hendelseskontrakter
   domain/               # Delte domeneregler
   ui/                   # Gjenbrukbare web-komponenter
-firmware/esp32-c3/      # BLE/Wi-Fi, konfigurasjon, status
+firmware/esp32-s3/      # BLE/Wi-Fi, konfigurasjon, status
 hardware/enclosure/     # 3D-print og monteringsfiler
 infra/                  # Lokal database, RabbitMQ, K8s-konfigurasjon senere
 docs/                   # Arkitektur, beslutninger, testresultater, plan
@@ -115,8 +115,8 @@ HVL tenant/appregistreringer og roller; kilde til romregister og driftsavvik; ko
 
 ## Første kodeleveranse
 
-API og PostgreSQL-skjema er påbegynt; enhetsregistrering, tilordning til sted, manuell iBeacon-identitet og aktivering etter operatørens BLE-test er implementert. ESP32-skissen sender test-iBeacon via USB-strøm, men den er foreløpig ikke tilkoblet Wi-Fi eller RabbitMQ. Entra ID tokenvalidering krever HVLs faktiske tenant/appregistrering og er ikke ende-til-ende-verifisert. Admin, mobil, desktop, jobbprosessering, sikker provisioning og RAG/Mime er ikke implementert. Se [apps/api/README.md](../apps/api/README.md), [firmware/esp32-c3/README.md](../firmware/esp32-c3/README.md) og [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md).
+API og PostgreSQL-skjema er påbegynt; enhetsregistrering, tilordning til sted, manuell iBeacon-identitet og aktivering etter operatørens BLE-test er implementert. En enkel test-iBeacon er nå fysisk verifisert på ESP32-S3 SuperMini via USB-strøm og nRF Connect. Full firmware med lokal portal, Wi-Fi og HTTPS-provisioning er kodet, men ikke ende-til-ende-validert. Entra ID tokenvalidering krever HVLs faktiske tenant/appregistrering og er ikke ende-til-ende-verifisert. Admin, mobil, desktop, jobbprosessering, sikker provisioning og RAG/Mime er ikke implementert. Se [apps/api/README.md](../apps/api/README.md), [firmware/esp32-s3/README.md](../firmware/esp32-s3/README.md) og [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md).
 
 ## Beslutning: lokal AP og sjeldne nettøkter
 
-Se [ESP32-FIRST-BOOT.md](ESP32-FIRST-BOOT.md). ESP32-C3 tilbyr midlertidig passordbeskyttet Wi-Fi og weboppsett på mobil ved første boot. Tekniker velger synlig SSID, skriver passord og navn, samt engangskode fra Entra-admin. Etter HTTPS-innrullering annonserer ESP32 backendtildelt iBeacon, slår Wi-Fi av og sjekker igjen ved neste oppstart og normalt hver time. Publisert informasjon oppdateres i backend og krever ingen beacon-sync. MVP krever **ikke** MQTT på enheten. HVLs godkjente IoT-SSID, TLS-sertifikat og fysisk test må avklares før produksjon.
+Se [ESP32-FIRST-BOOT.md](ESP32-FIRST-BOOT.md). ESP32-S3 tilbyr midlertidig passordbeskyttet Wi-Fi og weboppsett på mobil ved første boot. Tekniker velger synlig SSID, skriver passord og navn, samt engangskode fra Entra-admin. Etter HTTPS-innrullering annonserer ESP32 backendtildelt iBeacon, slår Wi-Fi av og sjekker igjen ved neste oppstart og normalt hver time. Publisert informasjon oppdateres i backend og krever ingen beacon-sync. MVP krever **ikke** MQTT på enheten. HVLs godkjente IoT-SSID, TLS-sertifikat og fysisk test må avklares før produksjon.
