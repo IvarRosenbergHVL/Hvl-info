@@ -261,6 +261,15 @@ app.put("/api/admin/places/:id", route(async (req, res) => {
   res.json(rows[0]);
 }));
 
+app.delete("/api/admin/places/:id", route(async (req, res) => {
+  const placeId = id(req.params.id);
+  const attached = await db.query("SELECT 1 FROM simple_beacons WHERE place_id=$1 LIMIT 1", [placeId]);
+  if (attached.rowCount) throw new HttpError(409, "Move or delete beacons before deleting this location");
+  const deleted = await db.query("DELETE FROM simple_places WHERE id=$1", [placeId]);
+  if (!deleted.rowCount) throw new HttpError(404, "Location not found");
+  res.status(204).end();
+}));
+
 app.get("/api/admin/beacons", route(async (_req, res) => {
   const { rows } = await db.query(beaconProjection + " ORDER BY b.beacon_number");
   res.json({ beacons:rows.map(row => ({ ...row, uuid:ibeaconUuid, major:1, minor:row.beacon_number })) });
@@ -285,6 +294,15 @@ app.put("/api/admin/beacons/:number", route(async (req, res) => {
   );
   if (!rows.length) throw new HttpError(404, "Beacon not found");
   res.json({ ...rows[0], uuid:ibeaconUuid, major:1, minor:n });
+}));
+
+app.delete("/api/admin/beacons/:number", route(async (req, res) => {
+  const n = beaconNumber(req.params.number);
+  // Proximity content scoped directly to the beacon is deleted by the FK cascade.
+  // Location-scoped content remains attached to the location.
+  const deleted = await db.query("DELETE FROM simple_beacons WHERE beacon_number=$1", [n]);
+  if (!deleted.rowCount) throw new HttpError(404, "Beacon not found");
+  res.status(204).end();
 }));
 
 app.get("/api/admin/content", route(async (_req, res) => {
