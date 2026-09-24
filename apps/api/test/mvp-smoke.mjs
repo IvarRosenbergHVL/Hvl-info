@@ -17,6 +17,7 @@ const number = randomInt(50000, 65000);
 let placeId = null;
 let createdBeacon = false;
 const contentIds = [];
+const cleanupErrors = [];
 
 async function request(path, method = "GET", value, expected = 200) {
   const response = await fetch(new URL(path, base), {
@@ -108,18 +109,20 @@ try {
   const updated = await request("/api/beacons/" + number + "?event=enter");
   assert.equal(updated.content[0].title, "Smoke updated");
 
-  console.log("PASS: health, config, place/beacon CRUD, iBeacon identity, event filtering, location content, URL rejection, disable and update");
 } finally {
   for (const contentId of contentIds.reverse()) {
     try { await request("/api/admin/content/" + contentId, "DELETE", undefined, 204); }
-    catch (error) { console.error("Could not clean up content:", contentId, error); }
+    catch (error) { cleanupErrors.push(error); console.error("Could not clean up content:", contentId, error); }
   }
   if (createdBeacon) {
     try { await request("/api/admin/beacons/" + number, "DELETE", undefined, 204); }
-    catch (error) { console.error("Could not clean up beacon:", number, error); }
+    catch (error) { cleanupErrors.push(error); console.error("Could not clean up beacon:", number, error); }
   }
   if (placeId) {
     try { await request("/api/admin/places/" + placeId, "DELETE", undefined, 204); }
-    catch (error) { console.error("Could not clean up location:", placeId, error); }
+    catch (error) { cleanupErrors.push(error); console.error("Could not clean up location:", placeId, error); }
   }
 }
+
+if (cleanupErrors.length) throw new Error("Smoke test cleanup failed. Inspect the local test database.");
+console.log("PASS: health, config, place/beacon CRUD, iBeacon identity, event filtering, location content, URL rejection, disable, update, cleanup");
