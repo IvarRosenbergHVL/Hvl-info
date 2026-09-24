@@ -100,6 +100,25 @@ function validContent(v: Record<string, unknown>) {
   if ((b === null) === (p === null)) throw new HttpError(400, "Content must target exactly one beacon or one location");
   const actionUrl = optional(v.action_url, "action_url", 2048);
   if (contentType === "link" && !actionUrl) throw new HttpError(400, "Link content requires action_url");
+  if (actionUrl) {
+    try {
+      const parsed = new URL(actionUrl);
+      if (!["https:", "http:"].includes(parsed.protocol) || !parsed.hostname) {
+        throw new Error("Unsupported URL protocol");
+      }
+      if (parsed.username || parsed.password) throw new Error("Credentials in URL are not supported");
+    } catch {
+      throw new HttpError(400, "action_url must be an absolute HTTP(S) URL without credentials");
+    }
+  }
+  const activeFrom = timestamp(v.active_from, "active_from");
+  const activeTo = timestamp(v.active_to, "active_to");
+  if (activeFrom && activeTo && activeTo <= activeFrom) {
+    throw new HttpError(400, "active_to must be after active_from");
+  }
+  if (v.enabled !== undefined && typeof v.enabled !== "boolean") {
+    throw new HttpError(400, "enabled must be boolean");
+  }
   return {
     beaconNumber: b,
     placeId: p,
@@ -111,8 +130,8 @@ function validContent(v: Record<string, unknown>) {
     priority: integer(v.priority ?? 50, "priority", 0, 100),
     cooldown: integer(v.cooldown_seconds ?? 3600, "cooldown_seconds", 0, 604800),
     enabled: v.enabled === undefined ? true : v.enabled,
-    activeFrom: timestamp(v.active_from, "active_from"),
-    activeTo: timestamp(v.active_to, "active_to")
+    activeFrom,
+    activeTo
   };
 }
 
@@ -281,7 +300,6 @@ app.get("/api/admin/content", route(async (_req, res) => {
 }));
 app.post("/api/admin/content", route(async (req, res) => {
   const c = validContent(payload(req));
-  if (typeof c.enabled !== "boolean") throw new HttpError(400, "enabled must be boolean");
   const { rows } = await db.query(`
     INSERT INTO simple_proximity_content(
       beacon_number,place_id,content_type,trigger_event,title,body_markdown,action_url,
@@ -294,7 +312,6 @@ app.post("/api/admin/content", route(async (req, res) => {
 }));
 app.put("/api/admin/content/:id", route(async (req, res) => {
   const c = validContent(payload(req));
-  if (typeof c.enabled !== "boolean") throw new HttpError(400, "enabled must be boolean");
   const { rows } = await db.query(`
     UPDATE simple_proximity_content SET
       beacon_number=$2,place_id=$3,content_type=$4,trigger_event=$5,title=$6,
