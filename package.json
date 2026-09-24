@@ -15,6 +15,7 @@
     "dev:admin": "npm run dev -w @hvl-info/admin",
     "build": "npm run build -w @hvl-info/contracts && npm run build -w @hvl-info/api && npm run build -w @hvl-info/admin",
     "test": "npm run test -w @hvl-info/contracts",
-    "db:migrate": "npm run db:migrate -w @hvl-info/api"
+    "db:migrate": "npm run db:migrate -w @hvl-info/api",
+    "smoke:mvp": "npm run smoke:mvp -w @hvl-info/api"
   }
 }
