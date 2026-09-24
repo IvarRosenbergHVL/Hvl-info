@@ -9,8 +9,9 @@
     "dev:legacy": "node --env-file=.env --import tsx --watch src/server.ts",
     "start:legacy": "node --env-file=.env dist/server.js",
     "build": "tsc -p tsconfig.json",
-    "db:migrate": "node --env-file=.env --import tsx src/migrate.ts",
-    "smoke:mvp": "node --env-file=.env test/mvp-smoke.mjs"
+    "db:migrate": "node --env-file=.env --import tsx src/migrate-mvp.ts",
+    "smoke:mvp": "node --env-file=.env test/mvp-smoke.mjs",
+    "db:migrate:legacy": "node --env-file=.env --import tsx src/migrate.ts"
   },
   "dependencies": {
     "@hvl-info/contracts": "0.1.0",
